@@ -4,34 +4,60 @@ module bf16_LUT(
 
 );
 
+    logic sign;
+    logic [7:0] exponent;
+    logic [6:0] mantissa;
+
+    assign sign = data_in[15];
+    assign exponent = data_in[14:7];
+    assign mantissa = data_in[6:0];
+
     always_comb begin
         data_out = 0;
-        if (data_in[15])begin
-           unique case(1)
-            (data_in > 16'hC080) : data_out = 0; //<-4.0
-            (data_in > 16'hC060) : data_out = 1; //<-3.5
-            (data_in > 16'hC040) : data_out = 2; //<-3.0
-            (data_in > 16'hC020) : data_out = 3; //<-2.5
-            (data_in > 16'hC000) : data_out = 4; //<-2.0
-            (data_in > 16'hBFC0) : data_out = 5; //<-1.5
-            (data_in > 16'hBF80) : data_out = 6; //<-1.0
-            default : data_out = 7; // <-0.5
-           endcase 
-        end 
+        if(sign) begin
+            case unique(1)
+                (data_in > 16'hC080): data_out = 0; //smaller than -4
+                (data_in > 16'hC070): data_out = 1;
+                (data_in > 16'hC060): data_out = 2;
+                (data_in > 16'hC050): data_out = 3;
+                (data_in > 16'hC040): data_out = 4;
+                (data_in > 16'hC030): data_out = 5;
+                (data_in > 16'hC020): data_out = 6;
+                (data_in > 16'hC010): data_out = 7;
+                (data_in > 16'hC000): data_out = 8;
+                (data_in > 16'hBFE0): data_out = 9;
+                (data_in > 16'hBFC0): data_out = 10;
+                (data_in > 16'hBFA0): data_out = 11;
+                (data_in > 16'hBF80): data_out = 12;
+                (data_in > 16'hBF40): data_out = 13;
+                (data_in > 16'hBF00): data_out = 14;
+                (data_in > 16'hBE80): data_out = 15; //smaller than -0.25
+                default: data_out = 16; //smaller than 0 but greater than -0.25
+            endcase 
+        end
         else begin
-            
-            unique case(1)
-            (data_in < 16'h3F00) : data_out = 8;
-            (data_in < 16'h3F80) : data_out = 9;
-            (data_in < 16'h3FC0) : data_out = 10;
-            (data_in < 16'h4000) : data_out = 11;
-            (data_in < 16'h4020) : data_out = 12;
-            (data_in < 16'h4040) : data_out = 13;
-            (data_in < 16'h4060) : data_out = 14;
-            (data_in < 16'h4080) : data_out = 15;
-            default : data_out = 16;
-           endcase 
+            case unique(1)
+                (data_in > 16'h4080): data_out = 17; //greater than +4
+                (data_in > 16'h4070): data_out = 18;
+                (data_in > 16'h4060): data_out = 19;
+                (data_in > 16'h4050): data_out = 20;
+                (data_in > 16'h4040): data_out = 21;
+                (data_in > 16'h4030): data_out = 22;
+                (data_in > 16'h4020): data_out = 23;
+                (data_in > 16'h4010): data_out = 24;
+                (data_in > 16'h4000): data_out = 25;
+                (data_in > 16'h3FE0): data_out = 26;
+                (data_in > 16'h3FC0): data_out = 27;
+                (data_in > 16'h3FA0): data_out = 28;
+                (data_in > 16'h3F80): data_out = 29;
+                (data_in > 16'h3F40): data_out = 30;
+                (data_in > 16'h3F00): data_out = 31;
+                (data_in > 16'h3E80): data_out = 32;
+                (data_in > 16'h0000): data_out = 33;
+                default: data_out = 34; //greater than 0 but smaller than 0.25
+            endcase 
         end 
+        
     
     end
 
