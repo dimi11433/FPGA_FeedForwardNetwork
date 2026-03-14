@@ -38,23 +38,22 @@ module bf16_LUT(
         else begin
             case unique(1)
                 (data_in > 16'h4080): data_out = 17; //greater than +4
-                (data_in > 16'h4070): data_out = 18;
-                (data_in > 16'h4060): data_out = 19;
-                (data_in > 16'h4050): data_out = 20;
-                (data_in > 16'h4040): data_out = 21;
-                (data_in > 16'h4030): data_out = 22;
-                (data_in > 16'h4020): data_out = 23;
-                (data_in > 16'h4010): data_out = 24;
-                (data_in > 16'h4000): data_out = 25;
-                (data_in > 16'h3FE0): data_out = 26;
-                (data_in > 16'h3FC0): data_out = 27;
-                (data_in > 16'h3FA0): data_out = 28;
-                (data_in > 16'h3F80): data_out = 29;
-                (data_in > 16'h3F40): data_out = 30;
-                (data_in > 16'h3F00): data_out = 31;
-                (data_in > 16'h3E80): data_out = 32;
+                (data_in > 16'h4070): data_out = 18; // greater than +3.75
+                (data_in > 16'h4060): data_out = 19; // greater than +3.5
+                (data_in > 16'h4050): data_out = 20; // greater than +3.25
+                (data_in > 16'h4040): data_out = 21; // greater than +3.00
+                (data_in > 16'h4030): data_out = 22; //greater than +2.750
+                (data_in > 16'h4020): data_out = 23; //greater than +2.5   
+                (data_in > 16'h4010): data_out = 24; //greater than +2.25  
+                (data_in > 16'h4000): data_out = 25; //greater than +2.00
+                (data_in > 16'h3FE0): data_out = 26; //greater than +1.75
+                (data_in > 16'h3FC0): data_out = 27; //greater than +1.50
+                (data_in > 16'h3FA0): data_out = 28; //greater than +1.25
+                (data_in > 16'h3F80): data_out = 29; //greater than +1.00
+                (data_in > 16'h3F40): data_out = 30; //greater than +0.75
+                (data_in > 16'h3F00): data_out = 31; //greater than +0.50
+                (data_in > 16'h3E80): data_out = 32; //greater than +0.25
                 (data_in > 16'h0000): data_out = 33;
-                default: data_out = 34; //greater than 0 but smaller than 0.25
             endcase 
         end 
         
