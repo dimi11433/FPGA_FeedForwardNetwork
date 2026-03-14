@@ -114,7 +114,7 @@ module tb_mac_8yc;
              
         end 
         if(packet.t_data_out == data_out)begin
-                $display("Test passed");
+            $display("Test passed");
         end 
         else begin
             $display("Test failed");
