@@ -10,7 +10,7 @@ module gelu_pwl(
 //So the input is 8*8 matrix this module will specifically handle one value of the matrix
 //We will also have a module for the entire column so each 8 values can be handled in parallel 
 
-    
+          
 
     
 
