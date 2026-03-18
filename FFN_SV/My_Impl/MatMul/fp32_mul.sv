@@ -1,48 +1,37 @@
+
 module fp32_mul (
     input  logic [31:0] a,
     input  logic [31:0] b,
     output logic [31:0] result
 );
+    logic        s;
+    logic [8:0]  e_sum;    // 9-bit to detect over/underflow
+    logic [47:0] m_prod;   // 24x24 = 48-bit full mantissa product
+    logic        zero_a, zero_b;
 
-    // Extract fields
-    logic sign_a, sign_b, sign_res;
-    logic [7:0] exp_a, exp_b, exp_res;
-    logic [23:0] mant_a, mant_b;
-    logic [47:0] mant_product;
+    assign zero_a  = ~|a[30:23];                                // exponent == 0 → zero
+    assign zero_b  = ~|b[30:23];
+    assign s       = a[31] ^ b[31];                             // XOR signs
+    assign e_sum   = {1'b0, a[30:23]} + {1'b0, b[30:23]}       // add biased exponents
+                     - 9'd127;                                  // remove one bias
+    assign m_prod  = {1'b1, a[22:0]} * {1'b1, b[22:0]};        // multiply mantissas (implicit 1)
 
     always_comb begin
-        // 1. Extract
-        sign_a = a[31];
-        sign_b = b[31];
-        exp_a  = a[30:23];
-        exp_b  = b[30:23];
+        if (zero_a || zero_b) begin
+            // Either operand is zero
+            result = {s, 31'b0};
 
-        // Add implicit 1
-        mant_a = {1'b1, a[22:0]};
-        mant_b = {1'b1, b[22:0]};
+        end else if (e_sum[8]) begin
+            // Bit 8 set = underflow (wrapped negative) or overflow (> 255)
+            result = {s, 31'b0};
 
-        // 2. Sign
-        sign_res = sign_a ^ sign_b;
+        end else if (m_prod[47]) begin
+            // MSB landed at bit 47 → 1x.frac → shift right 1, exp + 1
+            result = {s, e_sum[7:0] + 8'd1, m_prod[46:24]};
 
-        // 3. Exponent
-        exp_res = exp_a + exp_b - 8'd127;
-
-        // 4. Mantissa multiply
-        mant_product = mant_a * mant_b; // 24x24 → 48 bits
-
-        // 5. Normalize
-        if (mant_product[47]) begin
-            // 10.xxxxx
-            mant_product = mant_product >> 1;
-            exp_res = exp_res + 1;
+        end else begin
+            // MSB at bit 46 → 01.frac → already normalised
+            result = {s, e_sum[7:0], m_prod[45:23]};
         end
-
-        // 6. Pack result (truncate mantissa)
-        result = {
-            sign_res,
-            exp_res,
-            mant_product[45:23]  // 23 bits
-        };
     end
-
 endmodule
