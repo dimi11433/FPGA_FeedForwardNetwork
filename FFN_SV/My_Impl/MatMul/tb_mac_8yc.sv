@@ -14,9 +14,9 @@ class mac_model;
     bit rest_n;
     bit [15:0] t_data_out;
     bit [31:0] intermediate_out = 0;
-    // bit [31:0] w1 = 0;
-    // bit [31:0] x = 0;
-    // bit [31:0] b = 0;
+    bit [31:0] w1 = 0;
+    bit [31:0] x = 0;
+    bit [31:0] b = 0;
 
     function void reset();
         counter = 0;
@@ -37,14 +37,14 @@ class mac_model;
         else begin
             if(counter < 8)begin
                 counter = counter + 1;
-                // w1 = {t_a, 16'h0000};
-                // x = {t_b, 16'h0000};
-                intermediate_out +=  (t_a * t_b);
+                w1 = {t_a, 16'h0000};
+                x = {t_b, 16'h0000};
+                intermediate_out +=  (w1 * x);
             end 
             else if(counter == 8)begin
                 counter = counter + 1;
-                //b = {t_c, 16'h0000};
-                intermediate_out = intermediate_out + t_c;
+                b = {t_c, 16'h0000};
+                intermediate_out = intermediate_out + b;
             end 
             else begin
                 t_data_out = intermediate_out[31:16];
