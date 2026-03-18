@@ -1,3 +1,5 @@
+`include "fp32_mul.sv"
+`include "fp32_add.sv"
 module mac_8cyc(
     input clk,
     input rst_n,
@@ -12,10 +14,14 @@ module mac_8cyc(
     logic [31:0] W1_fp32, x_fp32, b_fp32;
     logic [4:0] cycle_count;
     //logic [15:0] b_reg;
+
     
     assign W1_fp32 = {data_in_a, 16'h0000};
     assign x_fp32 = {data_in_b, 16'h0000};
     assign b_fp32 = {data_in_c, 16'h0000};
+
+    fp32_mul mul_inst(.a(W1_fp32), .b(x_fp32), .result(intermediate_out));
+    fp32_add add_inst(.a(intermediate_out), .b(b_fp32), .result(intermediate_out));
 
     always_ff @(posedge clk) begin
         if(!rst_n)begin
