@@ -141,8 +141,8 @@ module gelu_LUT(
                 intercept_out = 16'hbb5f;
             end
             17: begin
-                slope_out = 16'h0000;
-                intercept_out = 16'h0000;
+                slope_out = 16'h3f80;
+                intercept_out = 16'hbb5f;
             end
             default: begin
                 slope_out = 16'h0000;

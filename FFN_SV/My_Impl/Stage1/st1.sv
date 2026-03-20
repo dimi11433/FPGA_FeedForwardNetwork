@@ -11,8 +11,8 @@ module gelu_pwl #(parameter N = 2)(
 );
 
     logic [4:0] bf16_index [0:N-1];
-    logic [4:0] intercept [0:N-1];
-    logic [4:0] slope [0:N-1];
+    logic [15:0] intercept [0:N-1];
+    logic [15:0] slope [0:N-1];
     bf16_LUT bf16_index1(data_in[0], bf16_index[0]);
     bf16_LUT bf16_index2(data_in[1], bf16_index[1]);
 
