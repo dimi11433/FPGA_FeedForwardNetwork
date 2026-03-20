@@ -156,4 +156,4 @@ module gelu_LUT(
 
 
 
-endmodule;
+endmodule
