@@ -35,7 +35,8 @@ module mac_8cyc_v2(
     // - cycle_count < 8  -> add prod_fp32
     // - cycle_count == 8 -> add b_fp32
     logic [31:0] rhs_fp32;
-    assign rhs_fp32 = (cycle_count == 5'd8) ? b_fp32 : prod_fp32;
+    logic [31:0] prod_reg;
+    assign rhs_fp32 = (cycle_count == 5'd8) ? b_fp32 : prod_reg;
 
     // Combinational adder output based on current accumulator + rhs
     logic [31:0] sum_fp32;
@@ -44,6 +45,10 @@ module mac_8cyc_v2(
         .b(rhs_fp32),
         .result(sum_fp32)
     );
+
+    always_ff @(posedge clk) begin
+        prod_reg <= prod_fp32;
+    end
 
     always_ff @(posedge clk) begin
         if (!rst_n) begin

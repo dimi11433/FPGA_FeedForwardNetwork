@@ -1,4 +1,9 @@
-
+// ============================================================
+// fp32_add.sv — IEEE 754 FP32 Combinational Adder
+// Handles : normal numbers, zeros, cancellation
+// Flushes : denormal results to zero
+// Ignores : inf, NaN (not needed for FFN accumulation)
+// ============================================================
 module fp32_add (
     input  logic [31:0] a,
     input  logic [31:0] b,
@@ -42,14 +47,24 @@ module fp32_add (
     // ----------------------------------------------------------
     logic        s_a, s_b;
     logic [7:0]  e_a, e_b;
-    logic [23:0] m_a, m_b;   // 24-bit with implicit leading 1
+    logic [23:0] m_a, m_b;   // 24-bit: implicit leading 1 (or 0 for denormals)
 
-    assign s_a = a[31]; assign e_a = a[30:23]; assign m_a = {1'b1, a[22:0]};
-    assign s_b = b[31]; assign e_b = b[30:23]; assign m_b = {1'b1, b[22:0]};
+    assign s_a = a[31]; assign e_a = a[30:23];
+    assign s_b = b[31]; assign e_b = b[30:23];
 
+    // Fix 1: denormal — leading bit is 0 when exponent == 0
+    assign m_a = (e_a == 8'b0) ? {1'b0, a[22:0]} : {1'b1, a[22:0]};
+    assign m_b = (e_b == 8'b0) ? {1'b0, b[22:0]} : {1'b1, b[22:0]};
+
+    // Fix 1: true zero needs both exponent and mantissa == 0
     logic zero_a, zero_b;
-    assign zero_a = ~|a[30:23];
-    assign zero_b = ~|b[30:23];
+    assign zero_a = (e_a == 8'b0) && (a[22:0] == 23'b0);
+    assign zero_b = (e_b == 8'b0) && (b[22:0] == 23'b0);
+
+    // INF detection — exponent all ones
+    logic inf_a, inf_b;
+    assign inf_a = (e_a == 8'hFF);
+    assign inf_b = (e_b == 8'hFF);
 
     // ----------------------------------------------------------
     // Swap so 'l' (large) has the larger exponent
@@ -99,36 +114,55 @@ module fp32_add (
     end
 
     // ----------------------------------------------------------
-    // Normalise result
-    //   mpos == 24 → carry out, shift right 1, exp + 1
-    //   mpos == 23 → already normalised
-    //   mpos <  23 → shift left (23 - mpos), exp - (23 - mpos)
+    // Normalise + Round + Overflow clamp
     // ----------------------------------------------------------
     logic [4:0]  mpos;
     logic [4:0]  lshift;
     logic [24:0] m_norm;
     logic [7:0]  e_out;
     logic [22:0] m_out;
+    logic        round_bit;
+    logic [7:0]  e_final;
 
     assign mpos   = msb_pos(m_raw);
     assign lshift = (mpos <= 5'd23) ? (5'd23 - mpos) : 5'd0;
     assign m_norm = m_raw << lshift;
 
-    assign e_out  = (mpos == 5'd24)              ? (e_l + 8'd1) :
-                    (e_l >= {3'b0, lshift})       ? (e_l - {3'b0, lshift}) :
-                                                    8'b0;          // underflow → zero
+    assign e_out  = (mpos == 5'd24)           ? (e_l + 8'd1) :
+                    (e_l >= {3'b0, lshift})   ? (e_l - {3'b0, lshift}) :
+                                                8'b0;
 
-    assign m_out  = (mpos == 5'd24) ? m_raw[23:1]  // carry: shift right 1
-                                    : m_norm[22:0]; // normalise left
+    // Fix 2: rounding — grab bit just below kept bits
+    assign round_bit = (mpos == 5'd24) ? m_raw[0] : m_norm[0];
+
+    // 24-bit extended to catch mantissa carry-out from rounding
+    logic [23:0] m_ext;
+    assign m_ext = (mpos == 5'd24) ? ({1'b0, m_raw[23:1]}  + {23'b0, round_bit})
+                                   : ({1'b0, m_norm[22:0]} + {23'b0, round_bit});
+
+    // Fix 3: detect carry from rounding via m_ext[23], bump exponent if so
+    always_comb begin
+        if (m_ext[23]) begin
+            m_out   = m_ext[23:1];       // shift right 1
+            e_final = e_out + 8'd1;      // compensate exponent
+        end else begin
+            m_out   = m_ext[22:0];
+            e_final = e_out;
+        end
+    end
 
     // ----------------------------------------------------------
-    // Output mux (handle zeros and zero result)
+    // Output mux — INF passthrough must come first
     // ----------------------------------------------------------
     always_comb begin
-        if      (zero_a)          result = b;          // a == 0 → return b
-        else if (zero_b)          result = a;          // b == 0 → return a
-        else if (m_raw == 25'b0)  result = 32'b0;      // cancellation
-        else if (mpos == 5'h1f)   result = 32'b0;      // zero mantissa
-        else                      result = {r_sign, e_out, m_out};
+        if      (inf_a && inf_b)    result = {a[31] & b[31], 8'hFF, 23'b0}; // INF+INF=INF
+        else if (inf_a)             result = a;                               // INF+x = INF
+        else if (inf_b)             result = b;                               // x+INF = INF
+        else if (zero_a)            result = b;
+        else if (zero_b)            result = a;
+        else if (m_raw == 25'b0)    result = 32'b0;
+        else if (mpos == 5'h1f)     result = 32'b0;
+        else if (e_final >= 8'hFF)  result = {r_sign, 8'hFF, 23'b0};
+        else                        result = {r_sign, e_final[7:0], m_out};
     end
 endmodule
