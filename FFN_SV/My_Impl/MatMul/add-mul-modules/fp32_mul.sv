@@ -31,11 +31,14 @@ module fp32_mul (
             result = {s, 8'hFF, 23'b0};  // INF
 
         end else begin
-            // normal range: result exp = e_sum_wide - 127
+            // normal range: result exp = e_sum_wide - 127 (or +1 when normalizing)
+            // IEEE: 24*24 product has leading 1 at 46 or 47. Fraction = next 23 bits.
+            // m_prod[47]=1: 1x.xxxx → shift right, use [46:24], exp+1
+            // m_prod[47]=0: 01.xxxx → use [45:23], exp unchanged
             if (m_prod[47])
-                result = {s, e_sum_wide[7:0] - 8'd127 + 8'd1, m_prod[46:24]};
+                result = {s, (e_sum_wide - 10'd127 + 10'd1)[7:0], m_prod[46:24]};
             else
-                result = {s, e_sum_wide[7:0] - 8'd127,        m_prod[45:23]};
+                result = {s, (e_sum_wide - 10'd127)[7:0],        m_prod[45:23]};
         end
     end
 endmodule
