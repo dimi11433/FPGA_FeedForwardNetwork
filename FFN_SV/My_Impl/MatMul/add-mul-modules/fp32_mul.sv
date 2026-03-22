@@ -36,9 +36,9 @@ module fp32_mul (
             // m_prod[47]=1: 1x.xxxx → shift right, use [46:24], exp+1
             // m_prod[47]=0: 01.xxxx → use [45:23], exp unchanged
             if (m_prod[47])
-                result = {s, (e_sum_wide - 10'd127 + 10'd1)[7:0], m_prod[46:24]};
+                result = {s, 8'(e_sum_wide - 10'd127 + 10'd1), m_prod[46:24]};
             else
-                result = {s, (e_sum_wide - 10'd127)[7:0],        m_prod[45:23]};
+                result = {s, 8'(e_sum_wide - 10'd127), m_prod[45:23]};
         end
     end
 endmodule

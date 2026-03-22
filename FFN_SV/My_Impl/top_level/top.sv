@@ -11,6 +11,8 @@ module top#(parameter N = 2)(
     logic [15:0] mac_out  [0:N-1][0:N-1];
     logic [15:0] gelu_out [0:N-1][0:N-1];
     logic [15:0] mac_out_2 [0:N-1][0:N-1];
+    logic ready_reg1 [0:N-1][0:N-1];
+    logic ready_reg2 [0:N-1][0:N-1];
 
     // Layer 1: h[i] = W1[i][:] · x[:] + b1[i]
     genvar i;
@@ -22,6 +24,7 @@ module top#(parameter N = 2)(
                 .data_in_a (w1[i]),       // full row i of W1
                 .data_in_b (x[i]),        // full row i of x
                 .data_in_c (b1[i]),       // full row i of b1
+                .ready     (ready_reg1[i]),
                 .data_out  (mac_out[i])
             );
         end
@@ -51,6 +54,7 @@ module top#(parameter N = 2)(
                 .data_in_a (w2[k]),        // full row k of W2
                 .data_in_b (gelu_out[k]),  // full row k of gelu_out
                 .data_in_c (b2[k]),        // full row k of b2
+                .ready     (ready_reg2[k]),
                 .data_out  (mac_out_2[k])  // write to mac_out_2, not mac_out
             );
         end
