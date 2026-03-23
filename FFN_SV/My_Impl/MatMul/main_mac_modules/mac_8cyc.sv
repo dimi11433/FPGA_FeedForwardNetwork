@@ -25,17 +25,12 @@ module mac_8cyc #(parameter N_ACCUM = 1)(
     logic [31:0] prod_fp32;
     fp32_mul mul_inst (.a(W1_fp32), .b(x_fp32), .result(prod_fp32));
 
-    // Add bias on cycle N_ACCUM, else add prod_reg
+    // Add bias on cycle N_ACCUM, else add product
     logic [31:0] rhs_fp32;
-    logic [31:0] prod_reg;
-    assign rhs_fp32 = (cycle_count == N_ACCUM) ? b_fp32 : prod_reg;
+    assign rhs_fp32 = (cycle_count == N_ACCUM) ? b_fp32 : prod_fp32;
 
     logic [31:0] sum_fp32;
     fp32_add add_inst (.a(intermediate_out), .b(rhs_fp32), .result(sum_fp32));
-
-    always_ff @(posedge clk) begin
-        prod_reg <= prod_fp32;
-    end
 
     always_ff @(posedge clk) begin
         if (!rst_n) begin
@@ -48,13 +43,16 @@ module mac_8cyc #(parameter N_ACCUM = 1)(
                 // Cycles 0..N_ACCUM-1: add product; cycle N_ACCUM: add bias
                 cycle_count      <= cycle_count + 5'd1;
                 intermediate_out <= sum_fp32;
-                ready            <= 1'b0;
+                ready            <= 1'b0; // deassert while accumulating
             end else begin
                 // cycle_count == N_ACCUM+1: output
                 ready       <= 1'b1;
                 cycle_count <= 5'd0;
                 data_out    <= (intermediate_out[15] && intermediate_out[31:16] != 16'hFFFF)
                     ? (intermediate_out[31:16] + 16'd1) : intermediate_out[31:16];
+                // Important: clear accumulator so next run doesn't keep accumulating.
+                // RHS of data_out uses the old intermediate_out value (nonblocking).
+                intermediate_out <= 32'h00000000;
             end
         end
     end
