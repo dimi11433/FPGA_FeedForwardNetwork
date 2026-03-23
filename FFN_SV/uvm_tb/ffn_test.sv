@@ -25,9 +25,13 @@ class ffn_test extends uvm_test;
 
     virtual task run_phase(uvm_phase phase);
         ffn_sequence seq;
+        int num_txns;
         phase.raise_objection(this);
         seq = ffn_sequence::type_id::create("seq");
-        seq.num_transactions = 5;
+        num_txns = 200;
+        void'($value$plusargs("NUM_TXNS=%d", num_txns));
+        seq.num_transactions = num_txns;
+        `uvm_info("TEST", $sformatf("Running with NUM_TXNS=%0d (+ directed corners)", seq.num_transactions), UVM_LOW)
         seq.start(env.agt.sqr);
         #1000;  // allow time for pipeline to drain
         phase.drop_objection(this);
