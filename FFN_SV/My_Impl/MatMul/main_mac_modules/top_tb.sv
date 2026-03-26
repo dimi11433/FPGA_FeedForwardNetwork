@@ -1,7 +1,7 @@
-// ============================================================
+
 // mac_model: mirrors mac_8cyc using shortreal (FP32) arithmetic
 // $bitstoshortreal / $shortrealtobits handle IEEE 754 correctly
-// ============================================================
+
 class mac_model;
     bit [3:0]  counter;
     bit [15:0] t_a, t_b, t_c;

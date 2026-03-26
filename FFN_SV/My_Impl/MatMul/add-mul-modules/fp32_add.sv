@@ -1,18 +1,18 @@
-// ============================================================
+
 // fp32_add.sv — IEEE 754 FP32 Combinational Adder
 // Handles : normal numbers, zeros, cancellation
 // Flushes : denormal results to zero
 // Ignores : inf, NaN (not needed for FFN accumulation)
-// ============================================================
+
 module fp32_add (
     input  logic [31:0] a,
     input  logic [31:0] b,
     output logic [31:0] result
 );
-    // ----------------------------------------------------------
+    
     // Priority encoder: find MSB position in a 25-bit value
     // Returns 5'h1f if input is zero
-    // ----------------------------------------------------------
+    
     function automatic [4:0] msb_pos (input [24:0] v);
         if      (v[24]) return 5'd24;
         else if (v[23]) return 5'd23;
@@ -42,9 +42,9 @@ module fp32_add (
         else            return 5'h1f;  // zero
     endfunction
 
-    // ----------------------------------------------------------
+    
     // Extract fields
-    // ----------------------------------------------------------
+   
     logic        s_a, s_b;
     logic [7:0]  e_a, e_b;
     logic [23:0] m_a, m_b;   // 24-bit: implicit leading 1 (or 0 for denormals)
@@ -66,9 +66,9 @@ module fp32_add (
     assign inf_a = (e_a == 8'hFF);
     assign inf_b = (e_b == 8'hFF);
 
-    // ----------------------------------------------------------
+    
     // Swap so 'l' (large) has the larger exponent
-    // ----------------------------------------------------------
+    
     logic        s_l, s_s;
     logic [7:0]  e_l;
     logic [23:0] m_l, m_s;
@@ -86,15 +86,15 @@ module fp32_add (
         end
     end
 
-    // ----------------------------------------------------------
+    
     // Align smaller mantissa (shift right by exponent difference)
-    // ----------------------------------------------------------
+    
     logic [23:0] m_s_algn;
     assign m_s_algn = (e_diff >= 8'd24) ? 24'b0 : (m_s >> e_diff);
 
-    // ----------------------------------------------------------
+    
     // Add or subtract mantissa magnitudes
-    // ----------------------------------------------------------
+   
     logic [24:0] m_raw;    // 25-bit: bit 24 captures carry-out
     logic        r_sign;
 
@@ -113,9 +113,9 @@ module fp32_add (
         end
     end
 
-    // ----------------------------------------------------------
+    
     // Normalise + Round + Overflow clamp
-    // ----------------------------------------------------------
+    
     logic [4:0]  mpos;
     logic [4:0]  lshift;
     logic [24:0] m_norm;
@@ -151,10 +151,9 @@ module fp32_add (
         end
     end
 
-    // ----------------------------------------------------------
+    
     // Output mux — INF passthrough must come first
-    // ----------------------------------------------------------
-    always_comb begin
+    
         if      (inf_a && inf_b)    result = {a[31] & b[31], 8'hFF, 23'b0}; // INF+INF=INF
         else if (inf_a)             result = a;                               // INF+x = INF
         else if (inf_b)             result = b;                               // x+INF = INF
