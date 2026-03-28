@@ -73,7 +73,7 @@ module uart_tx #(parameter CLKS_PER_BIT = 57)(
                 end 
             s_TX_STOP_BIT:
                 begin
-                    o_Tx_Bit <= 1'b0;
+                    o_Tx_Bit <= 1'b1;
                     if(r_Clock_Count < CLKS_PER_BIT - 1)begin 
                         r_Clock_Count <= r_Clock_Count + 1;
                         r_SM_Main <= s_TX_STOP_BIT;
