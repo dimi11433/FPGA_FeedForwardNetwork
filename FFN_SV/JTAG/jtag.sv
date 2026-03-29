@@ -15,6 +15,7 @@
  * Description: JTAG TAP for DMI (according to debug spec 0.13)
  *
  */
+ import dm::*;
 
 module dmi_jtag_tap #(
   parameter int unsigned IrLength = 5,

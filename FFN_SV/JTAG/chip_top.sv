@@ -4,6 +4,7 @@
 //   1. dmi_req_o and dmi_resp_i use proper dm:: structs
 //   2. dtmcs_status routed through dmi_reg at address 0x20
 //   3. Clean signal naming throughout
+import dm::*;
 
 module chip_top #(parameter N = 2) (
     input  logic        clk,
