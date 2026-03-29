@@ -39,15 +39,7 @@ module tb_chip_top;
     logic tdo;
     logic tdo_oe;
 
-    // ----------------------------------------
-    // FFN datapath inputs
-    // ----------------------------------------
-    logic [15:0] w1 [0:N-1][0:N-1];
-    logic [15:0] w2 [0:N-1][0:N-1];
-    logic [15:0] b1 [0:N-1][0:N-1];
-    logic [15:0] b2 [0:N-1][0:N-1];
-    logic [15:0] x  [0:N-1][0:N-1];
-    logic [15:0] y  [0:N-1][0:N-1];
+    // FFN datapath inputs are hardcoded inside chip_top (all 1.0 in Q8.8)
 
     // ----------------------------------------
     // Capture register — shift in TDO bits here
@@ -67,13 +59,7 @@ module tb_chip_top;
         .trst_ni   (trst_n),
         .td_i      (tdi),
         .td_o      (tdo),
-        .tdo_oe_o  (tdo_oe),
-        .w1        (w1),
-        .w2        (w2),
-        .b1        (b1),
-        .b2        (b2),
-        .x         (x),
-        .y         (y)
+        .tdo_oe_o  (tdo_oe)
     );
 
     // ----------------------------------------
@@ -211,16 +197,8 @@ module tb_chip_top;
         tms        = 1;
         tdi        = 0;
 
-        // Zero out all FFN inputs
-        for (int i = 0; i < N; i++) begin
-            for (int j = 0; j < N; j++) begin
-                w1[i][j] = 16'h0000;
-                w2[i][j] = 16'h0000;
-                b1[i][j] = 16'h0000;
-                b2[i][j] = 16'h0000;
-                x[i][j]  = 16'h0000;
-            end
-        end
+        // FFN inputs are hardcoded inside chip_top (all 1.0 in Q8.8)
+        // No need to drive them from the testbench
 
         // ----------------------------------
         // 3. Release system reset after
@@ -229,26 +207,7 @@ module tb_chip_top;
         repeat(5) @(posedge clk);
         rst_n = 1;
 
-        // ----------------------------------
-        // 4. Load FFN inputs
-        // Same values as tb_top.sv so we
-        // know what the expected output is:
-        //   W1 = W2 = identity matrix
-        //   x  = identity matrix
-        //   b1 = b2 = zero
-        // Expected: y ≈ GELU(1.0) for [0][0]
-        //           y ≈ 0 elsewhere
-        // ----------------------------------
-        w1[0][0] = 16'h3F80; w1[0][1] = 16'h0000;
-        w1[1][0] = 16'h0000; w1[1][1] = 16'h3F80;
-
-        w2[0][0] = 16'h3F80; w2[0][1] = 16'h0000;
-        w2[1][0] = 16'h0000; w2[1][1] = 16'h3F80;
-
-        x[0][0]  = 16'h3F80; x[0][1]  = 16'h0000;
-        x[1][0]  = 16'h0000; x[1][1]  = 16'h3F80;
-
-        $display("=== FFN inputs loaded ===");
+        $display("=== FFN inputs hardcoded to 1.0 (Q8.8 = 16'h0100) ===");
 
         // ----------------------------------
         // 5. Wait for the FFN pipeline to
