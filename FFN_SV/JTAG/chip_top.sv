@@ -11,22 +11,35 @@ module chip_top #(parameter N = 2) (
     input  logic        rst_n,
     input  logic        testmode_i,
 
-    // JTAG pins (connect to Nexys A7 JTAG header)
+    // JTAG pins (connect to Basys 3 JTAG header)
     input  logic        tck_i,
     input  logic        tms_i,
     input  logic        trst_ni,
     input  logic        td_i,
     output logic        td_o,
-    output logic        tdo_oe_o,
-
-    // Q8.8 datapath ports
-    input  logic [15:0] w1 [0:N-1][0:N-1],
-    input  logic [15:0] w2 [0:N-1][0:N-1],
-    input  logic [15:0] b1 [0:N-1][0:N-1],
-    input  logic [15:0] b2 [0:N-1][0:N-1],
-    input  logic [15:0] x  [0:N-1][0:N-1],
-    output logic [15:0] y  [0:N-1][0:N-1]
+    output logic        tdo_oe_o
 );
+
+    // Hardcoded test inputs: all 1.0 in Q8.8 format (16'h0100 = 1.0)
+    logic [15:0] w1 [0:N-1][0:N-1];
+    logic [15:0] w2 [0:N-1][0:N-1];
+    logic [15:0] b1 [0:N-1][0:N-1];
+    logic [15:0] b2 [0:N-1][0:N-1];
+    logic [15:0] x  [0:N-1][0:N-1];
+    logic [15:0] y  [0:N-1][0:N-1];
+
+    genvar gi, gj;
+    generate
+        for (gi = 0; gi < N; gi++) begin : gen_i
+            for (gj = 0; gj < N; gj++) begin : gen_j
+                assign w1[gi][gj] = 16'h0100;
+                assign w2[gi][gj] = 16'h0100;
+                assign b1[gi][gj] = 16'h0100;
+                assign b2[gi][gj] = 16'h0100;
+                assign x [gi][gj] = 16'h0100;
+            end
+        end
+    endgenerate
 
     // -------------------------
     // Debug signals from top
