@@ -58,27 +58,30 @@ module chip_top #(parameter N = 2) (
     dm::dmi_resp_t dmi_resp_struct;
 
     // Unpack dmi_req struct -> individual signals for dmi_reg
-    logic [6:0]  dmi_addr;
-    logic [31:0] dmi_wdata;
-    logic [1:0]  dmi_op;
+    // ILA probes: capture what address/data/op the JTAG master is requesting
+    (* MARK_DEBUG = "TRUE" *) logic [6:0]  dmi_addr;
+    (* MARK_DEBUG = "TRUE" *) logic [31:0] dmi_wdata;
+    (* MARK_DEBUG = "TRUE" *) logic [1:0]  dmi_op;
 
     assign dmi_addr  = dmi_req.addr;
     assign dmi_wdata = dmi_req.data;
     assign dmi_op    = dmi_req.op;
 
     // Pack dmi_reg outputs -> dmi_resp_struct for dmi_jtag
-    logic [31:0] dmi_rdata;
-    logic [1:0]  dmi_resp;
+    // ILA probes: capture what data the debug module is sending back
+    (* MARK_DEBUG = "TRUE" *) logic [31:0] dmi_rdata;
+    (* MARK_DEBUG = "TRUE" *) logic [1:0]  dmi_resp;
 
     assign dmi_resp_struct.data = dmi_rdata;
     assign dmi_resp_struct.resp = dmi_resp;
 
     // Handshake signals
-    logic        dmi_req_valid;
-    logic        dmi_req_ready;
-    logic        dmi_resp_valid;
-    logic        dmi_resp_ready;
-    logic        dmi_rst_n;
+    // ILA probes: capture when transactions start and complete
+    (* MARK_DEBUG = "TRUE" *) logic        dmi_req_valid;
+    (* MARK_DEBUG = "TRUE" *) logic        dmi_req_ready;
+    (* MARK_DEBUG = "TRUE" *) logic        dmi_resp_valid;
+    (* MARK_DEBUG = "TRUE" *) logic        dmi_resp_ready;
+                               logic        dmi_rst_n;
 
     // -------------------------
     // FIX 2: dtmcs_status wire
