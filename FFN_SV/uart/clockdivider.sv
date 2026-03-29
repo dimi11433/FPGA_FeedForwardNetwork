@@ -6,6 +6,7 @@ module clockdivider(
 
     //we have 100Mhz clock and we want 10MHz
     //so we need to divide by 10
+    //5 cycles low 5 cycles high 
     localparam [2:0]div_factor = 3'd4;
     logic [2:0] counter;
 

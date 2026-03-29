@@ -1,4 +1,4 @@
-module uart_rx #(parameter CLKS_PER_BIT = 57)(
+module uart_rx #(parameter CLKS_PER_BIT = 86)(
      //The amount of clicks per bit i guess its given in the name this needs to be set
     input i_clock, //Internal Clock to keep track
     input i_Rx_serial,//Input bit 

@@ -1,4 +1,4 @@
-module uart_tx #(parameter CLKS_PER_BIT = 57)(
+module uart_tx #(parameter CLKS_PER_BIT = 86)(
      //Sets the amount of r_Clocks you need before it counts as one clock cycle
     input i_Clock, //Internal clock can be calculated based on the device you're using
     input i_Tx_DV, //This says if the data recieved is valid or not
