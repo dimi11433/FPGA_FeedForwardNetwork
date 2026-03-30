@@ -46,19 +46,18 @@ class ffn_scoreboard extends uvm_scoreboard;
             exp_fifo.get(exp_tr);
             act_fifo.get(act_tr);
             match = 1;
-            for (int i = 0; i < N && match; i++)
-                for (int j = 0; j < N && match; j++) begin
-                    int diff = exp_tr.y_exp[i][j] - act_tr.y_act[i][j];
-                    if (diff < 0) diff = -diff;
-                    if (diff > tolerance)
-                        match = 0;
-                end
+            for (int i = 0; i < N && match; i++) begin
+                int diff = exp_tr.y_exp[i] - act_tr.y_act[i];
+                if (diff < 0) diff = -diff;
+                if (diff > tolerance)
+                    match = 0;
+            end
             num_compared++;
             if (match)
                 num_matches++;
             else
-                `uvm_error("SCOREBOARD", $sformatf("Mismatch #%0d: exp[0][0]=0x%04h act[0][0]=0x%04h",
-                    num_compared, exp_tr.y_exp[0][0], act_tr.y_act[0][0]))
+                `uvm_error("SCOREBOARD", $sformatf("Mismatch #%0d: exp[0]=0x%04h act[0]=0x%04h",
+                    num_compared, exp_tr.y_exp[0], act_tr.y_act[0]))
         end
     endtask
 

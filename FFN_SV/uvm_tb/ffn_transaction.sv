@@ -10,19 +10,19 @@ class ffn_transaction extends uvm_sequence_item;
 
     rand logic [15:0] w1 [0:N-1][0:N-1];
     rand logic [15:0] w2 [0:N-1][0:N-1];
-    rand logic [15:0] b1 [0:N-1][0:N-1];
-    rand logic [15:0] b2 [0:N-1][0:N-1];
-    rand logic [15:0] x  [0:N-1][0:N-1];
+    rand logic [15:0] b1 [0:N-1];
+    rand logic [15:0] b2 [0:N-1];
+    rand logic [15:0] x  [0:N-1];
 
-    logic [15:0] y_exp [0:N-1][0:N-1];  // expected output (from ref model)
-    logic [15:0] y_act [0:N-1][0:N-1];  // actual output (from monitor)
+    logic [15:0] y_exp [0:N-1];  // expected output (from ref model)
+    logic [15:0] y_act [0:N-1];  // actual output (from monitor)
 
     constraint valid_bf16 {
         foreach (w1[i,j]) { w1[i][j][14:7] != 8'hFF; }
         foreach (w2[i,j]) { w2[i][j][14:7] != 8'hFF; }
-        foreach (b1[i,j]) { b1[i][j][14:7] != 8'hFF; }
-        foreach (b2[i,j]) { b2[i][j][14:7] != 8'hFF; }
-        foreach (x[i,j])  { x[i][j][14:7]  != 8'hFF; }
+        foreach (b1[i]) { b1[i][14:7] != 8'hFF; }
+        foreach (b2[i]) { b2[i][14:7] != 8'hFF; }
+        foreach (x[i])  { x[i][14:7]  != 8'hFF; }
     }
 
     // Keep transaction registration simple for Questa UVM 1.2.
@@ -38,12 +38,14 @@ class ffn_transaction extends uvm_sequence_item;
             for (int j = 0; j < N; j++) begin
                 w1[i][j] = rhs.w1[i][j];
                 w2[i][j] = rhs.w2[i][j];
-                b1[i][j] = rhs.b1[i][j];
-                b2[i][j] = rhs.b2[i][j];
-                x[i][j]  = rhs.x[i][j];
-                y_exp[i][j] = rhs.y_exp[i][j];
-                y_act[i][j] = rhs.y_act[i][j];
             end
+        for (int i = 0; i < N; i++) begin
+            b1[i] = rhs.b1[i];
+            b2[i] = rhs.b2[i];
+            x[i]  = rhs.x[i];
+            y_exp[i] = rhs.y_exp[i];
+            y_act[i] = rhs.y_act[i];
+        end
     endfunction
 endclass
 

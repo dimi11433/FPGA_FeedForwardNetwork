@@ -44,10 +44,12 @@ class ffn_driver extends uvm_driver #(ffn_transaction);
             for (int j = 0; j < N; j++) begin
                 vif.cb.w1[i][j] <= tr.w1[i][j];
                 vif.cb.w2[i][j] <= tr.w2[i][j];
-                vif.cb.b1[i][j] <= tr.b1[i][j];
-                vif.cb.b2[i][j] <= tr.b2[i][j];
-                vif.cb.x[i][j]  <= tr.x[i][j];
             end
+        for (int i = 0; i < N; i++) begin
+            vif.cb.b1[i] <= tr.b1[i];
+            vif.cb.b2[i] <= tr.b2[i];
+            vif.cb.x[i]  <= tr.x[i];
+        end
         vif.cb.rst_n     <= 1;  // ensure deasserted
         vif.cb.sample_en <= 0;
 

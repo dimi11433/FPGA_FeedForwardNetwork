@@ -155,26 +155,24 @@ class ffn_ref_model extends uvm_subscriber #(ffn_transaction);
     endfunction
 
     virtual function void predict(ffn_transaction tr);
-        shortreal mac1_fp32;
-        shortreal mac2_fp32;
-        logic [15:0] mac1_bf16;
-        logic [15:0] gelu_bf16;
+        shortreal mac1_acc_fp32;
+        shortreal mac2_acc_fp32;
+        logic [15:0] hidden_bf16 [0:N-1];
         begin
             for (int i = 0; i < N; i++) begin
-                for (int j = 0; j < N; j++) begin
-                    // MAC1 output is BF16 (RTL trunc/rounds FP32 -> BF16)
-                    mac1_fp32 = bf16_to_fp32(tr.w1[i][j]) * bf16_to_fp32(tr.x[i][j])
-                              + bf16_to_fp32(tr.b1[i][j]);
-                    mac1_bf16 = fp32_to_bf16(mac1_fp32);
+                mac1_acc_fp32 = 0.0;
+                for (int j = 0; j < N; j++)
+                    mac1_acc_fp32 += bf16_to_fp32(tr.w1[i][j]) * bf16_to_fp32(tr.x[j]);
+                mac1_acc_fp32 += bf16_to_fp32(tr.b1[i]);
+                hidden_bf16[i] = gelu_pwl_bf16(fp32_to_bf16(mac1_acc_fp32));
+            end
 
-                    // GELU operates on BF16 input and produces BF16 output
-                    gelu_bf16 = gelu_pwl_bf16(mac1_bf16);
-
-                    // MAC2 output is BF16
-                    mac2_fp32 = bf16_to_fp32(tr.w2[i][j]) * bf16_to_fp32(gelu_bf16)
-                              + bf16_to_fp32(tr.b2[i][j]);
-                    tr.y_exp[i][j] = fp32_to_bf16(mac2_fp32);
-                end
+            for (int i = 0; i < N; i++) begin
+                mac2_acc_fp32 = 0.0;
+                for (int j = 0; j < N; j++)
+                    mac2_acc_fp32 += bf16_to_fp32(tr.w2[i][j]) * bf16_to_fp32(hidden_bf16[j]);
+                mac2_acc_fp32 += bf16_to_fp32(tr.b2[i]);
+                tr.y_exp[i] = fp32_to_bf16(mac2_acc_fp32);
             end
         end
     endfunction

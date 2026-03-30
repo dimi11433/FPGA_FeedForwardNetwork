@@ -30,10 +30,10 @@ class ffn_sequence extends uvm_sequence #(ffn_transaction);
             for (int j = 0; j < req.N; j++) begin
                 req.w1[i][j] = w1v;
                 req.w2[i][j] = w2v;
-                req.b1[i][j] = b1v;
-                req.b2[i][j] = b2v;
-                req.x[i][j]  = xv;
             end
+            req.b1[i] = b1v;
+            req.b2[i] = b2v;
+            req.x[i]  = xv;
         end
         finish_item(req);
     endtask
