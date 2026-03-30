@@ -69,11 +69,11 @@ module tb_chip_top;
     always #5 clk = ~clk;
 
     // ----------------------------------------
-    // TCK clock — 40ns period (25MHz)
-    // JTAG runs slower than system clock
+    // TCK = clk (single clock domain for sim)
+    // dmi_jtag has no CDC so TCK must match clk
+    // Hardware uses separate TCK from Pmod JA
     // ----------------------------------------
-    initial tck = 0;
-    always #20 tck = ~tck;
+    assign tck = clk;
 
     // ----------------------------------------
     // TASK 1: jtag_reset
@@ -124,7 +124,7 @@ module tb_chip_top;
         // Navigate: RunTestIdle → SelectDR →
         //           SelectIR → CaptureIR → ShiftIR
         // TMS sequence: 1, 1, 0, 0
-        jtag_tms_seq(8'b00001011, 4);
+        jtag_tms_seq(8'b00000011, 4);
 
         // Shift 5 IR bits in, LSB first
         // Keep TMS=0 to stay in ShiftIR
@@ -249,7 +249,7 @@ module tb_chip_top;
         // dmi_reg to process the request
         // and latch the read data
         // ----------------------------------
-        repeat(10) @(posedge clk);    // was 5 — give dmi_jtag FSM time to complete
+        repeat(50) @(posedge clk);    // wait for dmi_jtag FSM to complete read and latch response
 
 
         // ----------------------------------
