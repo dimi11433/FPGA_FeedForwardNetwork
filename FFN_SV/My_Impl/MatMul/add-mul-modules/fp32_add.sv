@@ -1,4 +1,7 @@
 
+`ifndef FP32_ADD_SV
+`define FP32_ADD_SV
+
 // fp32_add.sv — IEEE 754 FP32 Combinational Adder
 // Handles : normal numbers, zeros, cancellation
 // Flushes : denormal results to zero
@@ -165,3 +168,5 @@ module fp32_add (
         else                        result = {r_sign, e_final[7:0], m_out};
     end
 endmodule
+
+`endif

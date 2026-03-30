@@ -4,10 +4,12 @@
 module mac8 #(parameter N = 2)(
     input clk,
     input rst_n,
+    input start,
     input [15:0] data_in_a [0: N-1],
     input [15:0] data_in_b [0: N-1],
     input [15:0] data_in_c,
     output logic ready,
+    output logic done,
     output logic [15:0] data_out
 );
 
@@ -37,10 +39,17 @@ module mac8 #(parameter N = 2)(
         if (!rst_n) begin
             data_out <= 16'h0000;
             ready    <= 1'b0;
+            done     <= 1'b0;
         end else begin
-            data_out <= (out_fp32[15] && out_fp32[31:16] != 16'hFFFF)
-                ? (out_fp32[31:16] + 16'd1) : out_fp32[31:16];
-            ready <= 1'b1;
+            // Pulse outputs only when a new vector MAC is requested.
+            ready <= 1'b0;
+            done  <= 1'b0;
+            if (start) begin
+                data_out <= (out_fp32[15] && out_fp32[31:16] != 16'hFFFF)
+                    ? (out_fp32[31:16] + 16'd1) : out_fp32[31:16];
+                ready <= 1'b1;
+                done  <= 1'b1;
+            end
         end
     end
 

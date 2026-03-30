@@ -15,16 +15,19 @@ module tb_top;
     logic [15:0] b2 [0:N-1];
     logic [15:0] x  [0:N-1];
     logic [15:0] y  [0:N-1];
+    logic        done_dut;
 
     top #(.N(N)) dut (
         .clk (clk),
         .rst_n(rst_n),
+        .start(1'b1),
         .w1  (w1),
         .w2  (w2),
         .b1  (b1),
         .b2  (b2),
         .x   (x),
-        .y   (y)
+        .y   (y),
+        .done(done_dut)
     );
 
     initial begin

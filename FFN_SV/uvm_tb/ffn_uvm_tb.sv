@@ -11,18 +11,21 @@ module ffn_uvm_tb;
     localparam int N = 2;
 
     logic clk;
+    logic done_dut;  // FFN completion pulse (not used by UVM scoreboard)
 
     ffn_if #(.N(N)) ffn_vif(.clk(clk));
 
     top #(.N(N)) dut (
         .clk   (clk),
         .rst_n (ffn_vif.rst_n),
+        .start (1'b1),
         .w1    (ffn_vif.w1),
         .w2    (ffn_vif.w2),
         .b1    (ffn_vif.b1),
         .b2    (ffn_vif.b2),
         .x     (ffn_vif.x),
-        .y     (ffn_vif.y)
+        .y     (ffn_vif.y),
+        .done  (done_dut)
     );
 
     // Combinational RTL-accurate reference for exact scoreboard comparisons.
@@ -49,7 +52,7 @@ module ffn_uvm_tb;
     initial begin
         import ffn_pkg::*;
         uvm_pkg::uvm_config_db#(virtual ffn_if#(N))::set(null, "uvm_test_top.env.agt*", "vif", ffn_vif);
-        run_test("ffn_test");
+        uvm_pkg::run_test("ffn_test");
     end
 
 endmodule

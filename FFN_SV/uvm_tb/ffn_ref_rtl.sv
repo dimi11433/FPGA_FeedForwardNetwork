@@ -6,11 +6,11 @@
 // RTL-accurate combinational reference for top.sv (vector FFN form):
 // y = W2 * GELU(W1*x + b1) + b2
 module ffn_ref_rtl #(parameter int N = 2) (
-    input  logic [15:0] w2 [0:N-1][0:N-1],
-    input  logic [15:0] w1 [0:N-1][0:N-1],
-    input  logic [15:0] b1 [0:N-1],
-    input  logic [15:0] b2 [0:N-1],
-    input  logic [15:0] x  [0:N-1],
+    input  wire [15:0] w2 [0:N-1][0:N-1],
+    input  wire [15:0] w1 [0:N-1][0:N-1],
+    input  wire [15:0] b1 [0:N-1],
+    input  wire [15:0] b2 [0:N-1],
+    input  wire [15:0] x  [0:N-1],
     output logic [15:0] y_ref [0:N-1]
 );
 
