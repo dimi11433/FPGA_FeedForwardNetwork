@@ -179,20 +179,103 @@ module tb_chip_top;
     endtask
 
     // ----------------------------------------
+    // TASK 5: jtag_dmi_read
+    // Performs a complete DMI read transaction:
+    //   1. DR shift 1 — sends READ request for
+    //      the given 7-bit address. The op field
+    //      is 2'b01 = READ.
+    //   2. Waits 100 cycles for the dmi_jtag FSM
+    //      to issue the request to dmi_reg, wait
+    //      for the response, and latch data_q.
+    //   3. DR shift 2 — sends a NOOP (op=2'b00).
+    //      While shifting in the NOOP, the chip
+    //      shifts out the captured response.
+    //      captured_dr[33:2] = 32-bit read data.
+    //      captured_dr[1:0]  = status (00 = ok).
+    //
+    // IR must already be set to DMIACCESS (5'h11)
+    // before calling this task.
+    // ----------------------------------------
+    task jtag_dmi_read(input logic [6:0] addr, output logic [31:0] rdata);
+        // DR shift 1: send READ request
+        // Packet = {addr[6:0], 32'h0 (ignored), 2'b01 (READ)}
+        jtag_shift_dr({addr, 32'h0, 2'b01});
+
+        // Wait for dmi_jtag FSM:
+        //   Idle → Read (asserts dmi_req_valid)
+        //   Read → WaitReadValid (dmi_req_ready=1 so immediate)
+        //   WaitReadValid → Idle (dmi_resp_valid fires, data_q latched)
+        repeat(100) @(posedge clk);
+
+        // DR shift 2: send NOOP to clock out the response
+        // The TAP captures {address_q, data_q, DMINoError} into dr_q
+        // on CaptureDR, then shifts it out LSB-first via TDO.
+        jtag_shift_dr({7'h00, 32'h0, 2'b00});
+
+        // captured_dr[33:2] is the 32-bit read data
+        // captured_dr[1:0]  is the status (00 = success)
+        rdata = captured_dr[33:2];
+    endtask
+
+    // ----------------------------------------
+    // TASK 6: print_result
+    // Prints one register read result and does
+    // a pass/fail check against the direct wire.
+    // ----------------------------------------
+    task print_result(
+        input string      name,
+        input logic [6:0] addr,
+        input logic [31:0] jtag_val,
+        input logic [15:0] direct_val
+    );
+        $display("  [0x%02h] %-20s JTAG=0x%04h  direct=0x%04h  status=%02b  %s",
+            addr, name,
+            jtag_val[15:0], direct_val,
+            captured_dr[1:0],
+            (jtag_val[15:0] == direct_val) ? "PASS" : "FAIL");
+    endtask
+
+    // ----------------------------------------
     // MAIN TEST
     // ----------------------------------------
+    // What happens, step by step:
+    //
+    // 1. Initialize signals, hold reset low.
+    // 2. Release system reset — FFN starts computing.
+    // 3. Wait 25 cycles — FFN pipeline latency.
+    // 4. JTAG reset — TAP goes to TestLogicReset
+    //    then RunTestIdle (trst_n low 5 cycles).
+    // 5. Shift IR = 5'h11 — loads DMIACCESS into
+    //    jtag_ir_q, enabling dmi_select.
+    // 6. For each register address:
+    //    a. DR shift 1 sends {addr, 0, READ}.
+    //       UpdateDR fires → dmi_jtag FSM sees
+    //       dmi_select & update → moves Idle→Read.
+    //    b. Read state asserts dmi_req_valid.
+    //       dmi_reg sees dmi_req_valid, looks up
+    //       address, puts result in rdata_reg,
+    //       asserts dmi_resp_valid.
+    //    c. WaitReadValid sees dmi_resp_valid,
+    //       latches data into data_q, goes Idle.
+    //    d. DR shift 2 (NOOP): CaptureDR loads
+    //       {address_q, data_q, 00} into dr_q.
+    //       ShiftDR clocks it out via TDO LSB-first.
+    //       Testbench samples TDO on each negedge.
+    // 7. Compare each JTAG read to direct wire.
+    // ----------------------------------------
+    integer pass_count;
+    integer fail_count;
+    logic [31:0] rdata;
+
     initial begin
-        // ----------------------------------
-        // 1. Set up waveform dump
-        // Creates a .vcd file you can open
-        // in GTKWave to see all the signals
-        // ----------------------------------
         $dumpfile("tb_chip_top.vcd");
         $dumpvars(0, tb_chip_top);
 
+        pass_count = 0;
+        fail_count = 0;
+
         // ----------------------------------
-        // 2. Initialize all signals to safe
-        // default values before releasing reset
+        // 1. Initialize signals
         // ----------------------------------
         rst_n      = 0;
         testmode_i = 0;
@@ -200,95 +283,143 @@ module tb_chip_top;
         tms        = 1;
         tdi        = 0;
 
-        // FFN inputs are hardcoded inside chip_top (all 1.0 in Q8.8)
-        // No need to drive them from the testbench
-
         // ----------------------------------
-        // 3. Release system reset after
-        // a few clock cycles
+        // 2. Release system reset
         // ----------------------------------
         repeat(5) @(posedge clk);
         rst_n = 1;
-
+        $display("=== System reset released ===");
         $display("=== FFN inputs hardcoded to 1.0 (Q8.8 = 16'h0100) ===");
 
         // ----------------------------------
-        // 5. Wait for the FFN pipeline to
-        // finish — same 20 cycle latency
-        // as tb_top.sv
+        // 3. Wait for FFN pipeline to finish
         // ----------------------------------
         repeat(25) @(posedge clk);
-        $display("=== FFN pipeline done — y[0][0] = %04h ===", dut.y[0][0]);
+        $display("=== FFN pipeline done ===");
+        $display("    y[0][0]=%04h  y[0][1]=%04h", dut.y[0][0], dut.y[0][1]);
+        $display("    y[1][0]=%04h  y[1][1]=%04h", dut.y[1][0], dut.y[1][1]);
 
         // ----------------------------------
-        // 6. JTAG reset — always do this
-        // first to get the TAP into a known
-        // state (TestLogicReset)
+        // 4. JTAG reset
+        // trst_n low for 5 TCK cycles forces
+        // TAP to TestLogicReset. tms=0 on
+        // release moves it to RunTestIdle.
         // ----------------------------------
         jtag_reset();
-        $display("=== JTAG reset done ===");
+        $display("=== JTAG reset done — TAP in RunTestIdle ===");
 
         // ----------------------------------
-        // 7. Select the DMIACCESS register
-        // IR = 5'h11 tells the TAP "I want
-        // to talk to the DMI data register"
+        // 5. Select DMIACCESS instruction
+        // TMS: 1,1,0,0 → ShiftIR
+        // Shift in 5'h11 LSB-first
+        // TMS: 1,0 → UpdateIR → RunTestIdle
+        // Now jtag_ir_q = DMIACCESS (5'h11)
+        // and dmi_select = 1 for all DR shifts
         // ----------------------------------
         jtag_shift_ir(5'h11);
-        $display("=== IR shifted: DMIACCESS selected ===");
+        $display("=== IR = DMIACCESS (5'h11) loaded ===");
+        $display("");
 
         // ----------------------------------
-        // 8. First DR shift — send READ
-        // request for address 0x0C (y[0][0])
-        // Packet format: {addr, data, op}
-        //   addr = 7'h0C
-        //   data = 32'h0 (ignored on read)
-        //   op   = 2'b01 (READ)
+        // 6. Read all DMI registers
+        // IR stays DMIACCESS for all reads.
+        // Each jtag_dmi_read call does:
+        //   DR shift 1 → wait 100 → DR shift 2
         // ----------------------------------
-        jtag_shift_dr({7'h0C, 32'h0, 2'b01});
-        $display("=== DR shift 1: read request sent for addr 0x0C ===");
+
+        $display("=== Layer 1 MAC outputs (w1*x + b1) ===");
+        jtag_dmi_read(7'h00, rdata);
+        print_result("mac_out[0][0]", 7'h00, rdata, dut.dbg_mac_out[0][0]);
+        if (rdata[15:0] == dut.dbg_mac_out[0][0]) pass_count++; else fail_count++;
+
+        jtag_dmi_read(7'h01, rdata);
+        print_result("mac_out[0][1]", 7'h01, rdata, dut.dbg_mac_out[0][1]);
+        if (rdata[15:0] == dut.dbg_mac_out[0][1]) pass_count++; else fail_count++;
+
+        jtag_dmi_read(7'h02, rdata);
+        print_result("mac_out[1][0]", 7'h02, rdata, dut.dbg_mac_out[1][0]);
+        if (rdata[15:0] == dut.dbg_mac_out[1][0]) pass_count++; else fail_count++;
+
+        jtag_dmi_read(7'h03, rdata);
+        print_result("mac_out[1][1]", 7'h03, rdata, dut.dbg_mac_out[1][1]);
+        if (rdata[15:0] == dut.dbg_mac_out[1][1]) pass_count++; else fail_count++;
+
+        $display("");
+        $display("=== Layer 1 GELU outputs ===");
+        jtag_dmi_read(7'h04, rdata);
+        print_result("gelu_out[0][0]", 7'h04, rdata, dut.dbg_gelu_out[0][0]);
+        if (rdata[15:0] == dut.dbg_gelu_out[0][0]) pass_count++; else fail_count++;
+
+        jtag_dmi_read(7'h05, rdata);
+        print_result("gelu_out[0][1]", 7'h05, rdata, dut.dbg_gelu_out[0][1]);
+        if (rdata[15:0] == dut.dbg_gelu_out[0][1]) pass_count++; else fail_count++;
+
+        jtag_dmi_read(7'h06, rdata);
+        print_result("gelu_out[1][0]", 7'h06, rdata, dut.dbg_gelu_out[1][0]);
+        if (rdata[15:0] == dut.dbg_gelu_out[1][0]) pass_count++; else fail_count++;
+
+        jtag_dmi_read(7'h07, rdata);
+        print_result("gelu_out[1][1]", 7'h07, rdata, dut.dbg_gelu_out[1][1]);
+        if (rdata[15:0] == dut.dbg_gelu_out[1][1]) pass_count++; else fail_count++;
+
+        $display("");
+        $display("=== Layer 2 MAC outputs (w2*gelu + b2) ===");
+        jtag_dmi_read(7'h08, rdata);
+        print_result("mac_out_2[0][0]", 7'h08, rdata, dut.dbg_mac_out_2[0][0]);
+        if (rdata[15:0] == dut.dbg_mac_out_2[0][0]) pass_count++; else fail_count++;
+
+        jtag_dmi_read(7'h09, rdata);
+        print_result("mac_out_2[0][1]", 7'h09, rdata, dut.dbg_mac_out_2[0][1]);
+        if (rdata[15:0] == dut.dbg_mac_out_2[0][1]) pass_count++; else fail_count++;
+
+        jtag_dmi_read(7'h0A, rdata);
+        print_result("mac_out_2[1][0]", 7'h0A, rdata, dut.dbg_mac_out_2[1][0]);
+        if (rdata[15:0] == dut.dbg_mac_out_2[1][0]) pass_count++; else fail_count++;
+
+        jtag_dmi_read(7'h0B, rdata);
+        print_result("mac_out_2[1][1]", 7'h0B, rdata, dut.dbg_mac_out_2[1][1]);
+        if (rdata[15:0] == dut.dbg_mac_out_2[1][1]) pass_count++; else fail_count++;
+
+        $display("");
+        $display("=== Final FFN outputs y[i][j] ===");
+        jtag_dmi_read(7'h0C, rdata);
+        print_result("y[0][0]", 7'h0C, rdata, dut.y[0][0]);
+        if (rdata[15:0] == dut.y[0][0]) pass_count++; else fail_count++;
+
+        jtag_dmi_read(7'h0D, rdata);
+        print_result("y[0][1]", 7'h0D, rdata, dut.y[0][1]);
+        if (rdata[15:0] == dut.y[0][1]) pass_count++; else fail_count++;
+
+        jtag_dmi_read(7'h0E, rdata);
+        print_result("y[1][0]", 7'h0E, rdata, dut.y[1][0]);
+        if (rdata[15:0] == dut.y[1][0]) pass_count++; else fail_count++;
+
+        jtag_dmi_read(7'h0F, rdata);
+        print_result("y[1][1]", 7'h0F, rdata, dut.y[1][1]);
+        if (rdata[15:0] == dut.y[1][1]) pass_count++; else fail_count++;
+
+        $display("");
+        $display("=== Ready flags ===");
+        jtag_dmi_read(7'h10, rdata);
+        $display("  [0x10] ready1 (packed) = 0x%08h  status=%02b  %s",
+            rdata, captured_dr[1:0],
+            (captured_dr[1:0] == 2'b00) ? "PASS" : "FAIL");
+        if (captured_dr[1:0] == 2'b00) pass_count++; else fail_count++;
+
+        jtag_dmi_read(7'h11, rdata);
+        $display("  [0x11] ready2 (packed) = 0x%08h  status=%02b  %s",
+            rdata, captured_dr[1:0],
+            (captured_dr[1:0] == 2'b00) ? "PASS" : "FAIL");
+        if (captured_dr[1:0] == 2'b00) pass_count++; else fail_count++;
 
         // ----------------------------------
-        // 9. Wait a few system clocks for
-        // dmi_reg to process the request
-        // and latch the read data
+        // 7. Final summary
         // ----------------------------------
-        repeat(100) @(posedge clk);   // wait for dmi_jtag FSM to complete read and latch response
-
-
-        // ----------------------------------
-        // 10. Second DR shift — send NOOP
-        // This clocks out the result from
-        // the previous read. The chip puts
-        // the result in [33:2] of TDO.
-        // op = 2'b00 means do nothing new.
-        // ----------------------------------
-        jtag_shift_dr({7'h00, 32'h0, 2'b00});
-        $display("=== DR shift 2: response captured ===");
-
-        // ----------------------------------
-        // 11. Decode and display the result
-        // captured_dr layout:
-        //   [40:34] = address echo
-        //   [33:2]  = read data (our value)
-        //   [1:0]   = status (00 = success)
-        // ----------------------------------
-        $display("--- JTAG Read Result ---");
-        $display("  Raw captured DR : 0x%011h", captured_dr);  // changed from $display("  Raw captured DR : %041b", captured_dr); to what it is now to show hex instead of binary
-        $display("  Address echo    : 0x%02h", captured_dr[40:34]);
-        $display("  Read data       : 0x%08h", captured_dr[33:2]);
-        $display("  Status          : %02b (00=ok)", captured_dr[1:0]);
-        $display("  y[0][0] via JTAG: %04h", captured_dr[17:2]);
-
-        // ----------------------------------
-        // 12. Pass/fail check
-        // Compare JTAG read against direct
-        // wire observation of y[0][0]
-        // ----------------------------------
-        if (captured_dr[17:2] == dut.y[0][0])
-            $display("PASS — JTAG read matches y[0][0]");
-        else
-            $display("FAIL — JTAG=%04h, direct=%04h",
-                     captured_dr[17:2], dut.y[0][0]);
+        $display("");
+        $display("==========================================");
+        $display("  RESULTS: %0d PASS  %0d FAIL  (of %0d)",
+                 pass_count, fail_count, pass_count + fail_count);
+        $display("==========================================");
 
         $display("=== tb_chip_top done ===");
         $finish;
