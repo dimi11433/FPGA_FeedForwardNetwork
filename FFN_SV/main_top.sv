@@ -48,7 +48,7 @@ module main_top #(parameter int N = 2)(
     end
 
     uart_rx #(.CLKS_PER_BIT(86)) uart_rx_module(
-        .i_Clock(clk),
+        .i_clock(clk),
         .i_Rx_serial(rx_bit),
         .o_Rx_DV(rx_dv),
         .o_Rx_byte(rx_byte)

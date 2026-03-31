@@ -16,7 +16,7 @@ module fpga_top (
     //   Reset  : active-low (resetn)
     clk_wiz_0 clk_gen (
         .clk_in1  (clk_100mhz),
-        .resetn   (cpu_resetn),
+        .reset   (cpu_resetn),
         .clk_out1 (clk_10mhz),
         .locked   (clk_locked)
     );

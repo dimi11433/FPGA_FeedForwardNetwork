@@ -156,7 +156,7 @@ module fp32_add (
 
     
     // Output mux — INF passthrough must come first
-    
+    always_comb begin
         if      (inf_a && inf_b)    result = {a[31] & b[31], 8'hFF, 23'b0}; // INF+INF=INF
         else if (inf_a)             result = a;                               // INF+x = INF
         else if (inf_b)             result = b;                               // x+INF = INF
