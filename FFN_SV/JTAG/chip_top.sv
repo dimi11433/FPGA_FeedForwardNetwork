@@ -147,26 +147,58 @@ module chip_top #(parameter N = 2) (
     );
 
     // -------------------------
+    // VIO internal signals
+    // VIO drives JTAG inputs so
+    // you can manually clock the
+    // TAP from Vivado Hardware Manager
+    // without a physical JTAG probe
+    // -------------------------
+    logic vio_tck;
+    logic vio_tms;
+    logic vio_trst_n;
+    logic vio_tdi;
+    logic vio_tdo;
+    logic vio_tdo_oe;
+
+    // -------------------------
+    // Instantiate VIO
+    // PROBE_OUT → drives JTAG inputs
+    // PROBE_IN  ← monitors JTAG outputs
+    // -------------------------
+    vio_0 u_vio (
+        .clk        (clk),
+        .probe_in0  (vio_tdo),      // monitor tdo
+        .probe_in1  (vio_tdo_oe),   // monitor tdo_oe
+        .probe_out0 (vio_tck),      // drive tck
+        .probe_out1 (vio_tms),      // drive tms
+        .probe_out2 (vio_trst_n),   // drive trst_n
+        .probe_out3 (vio_tdi)       // drive tdi
+    );
+
+    // -------------------------
     // Instantiate dmi_jtag
     // FIX 1: use struct ports
+    // JTAG inputs come from VIO
+    // so Hardware Manager controls
+    // the TAP directly
     // -------------------------
     dmi_jtag u_dmi_jtag (
         .clk_i            (clk),
         .rst_ni           (rst_n),
         .testmode_i       (testmode_i),
         .dmi_rst_no       (dmi_rst_n),
-        .dmi_req_o        (dmi_req),           // FIX 1: struct wire
+        .dmi_req_o        (dmi_req),
         .dmi_req_valid_o  (dmi_req_valid),
         .dmi_req_ready_i  (dmi_req_ready),
-        .dmi_resp_i       (dmi_resp_struct),   // FIX 1: struct wire
+        .dmi_resp_i       (dmi_resp_struct),
         .dmi_resp_ready_o (dmi_resp_ready),
         .dmi_resp_valid_i (dmi_resp_valid),
-        .tck_i            (tck_i),
-        .tms_i            (tms_i),
-        .trst_ni          (trst_ni),
-        .td_i             (td_i),
-        .td_o             (td_o),
-        .tdo_oe_o         (tdo_oe_o)
+        .tck_i            (vio_tck),    // from VIO
+        .tms_i            (vio_tms),    // from VIO
+        .trst_ni          (vio_trst_n), // from VIO
+        .td_i             (vio_tdi),    // from VIO
+        .td_o             (vio_tdo),    // to VIO
+        .tdo_oe_o         (vio_tdo_oe) // to VIO
     );
 
 endmodule
