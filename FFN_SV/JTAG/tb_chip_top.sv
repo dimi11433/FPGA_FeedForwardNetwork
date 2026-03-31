@@ -161,13 +161,15 @@ module tb_chip_top;
         jtag_tms_seq(8'b00000000, 2);
 
         // Shift 41 bits — LSB first
-        // Capture TDO at the same time
+        // TDO is registered on negedge from dr_q[0] BEFORE the posedge shift.
+        // So correct order is: wait negedge → sample TDO → wait posedge (shift)
         captured_dr = 41'h0;
         for (int i = 0; i < 41; i++) begin
             tdi = dr_in[i];
             tms = (i == 40) ? 1 : 0;  // exit on last bit
-            @(posedge tck); #1;
-            captured_dr[i] = tdo;      // sample TDO
+            @(negedge tck); #1;        // TDO latches dr_q[0] = bit i (pre-shift)
+            captured_dr[i] = tdo;      // sample TDO now valid
+            @(posedge tck); #1;        // DUT samples TDI and shifts DR (bit i+1 → dr_q[0])
         end
 
         // Navigate: Exit1DR → UpdateDR → RunTestIdle
@@ -232,6 +234,9 @@ module tb_chip_top;
         // ----------------------------------
         jtag_shift_ir(5'h11);
         $display("=== IR shifted: DMIACCESS selected ===");
+        $display("  DBG ir_q=%05b  dmi_select=%0b",
+                 dut.u_dmi_jtag.i_dmi_jtag_tap.jtag_ir_q,
+                 dut.u_dmi_jtag.dmi_select);
 
         // ----------------------------------
         // 8. First DR shift — send READ
@@ -243,13 +248,22 @@ module tb_chip_top;
         // ----------------------------------
         jtag_shift_dr({7'h0C, 32'h0, 2'b01});
         $display("=== DR shift 1: read request sent for addr 0x0C ===");
+        @(posedge clk); #1;
+        $display("  DBG post-UpdateDr: state_q=%0d addr_q=%02h data_q=%08h",
+                 dut.u_dmi_jtag.state_q,
+                 dut.u_dmi_jtag.address_q,
+                 dut.u_dmi_jtag.data_q);
 
         // ----------------------------------
         // 9. Wait a few system clocks for
         // dmi_reg to process the request
         // and latch the read data
         // ----------------------------------
-        repeat(50) @(posedge clk);    // wait for dmi_jtag FSM to complete read and latch response
+        repeat(100) @(posedge clk);   // wait for dmi_jtag FSM to complete read and latch response
+        $display("  DBG after 100 wait: state_q=%0d data_q=%08h rdata_reg=%08h",
+                 dut.u_dmi_jtag.state_q,
+                 dut.u_dmi_jtag.data_q,
+                 dut.u_dmi_reg.rdata_reg);
 
 
         // ----------------------------------
@@ -261,6 +275,7 @@ module tb_chip_top;
         // ----------------------------------
         jtag_shift_dr({7'h00, 32'h0, 2'b00});
         $display("=== DR shift 2: response captured ===");
+        $display("  DBG dr_q after shift2=%011h", dut.u_dmi_jtag.dr_q);
 
         // ----------------------------------
         // 11. Decode and display the result
