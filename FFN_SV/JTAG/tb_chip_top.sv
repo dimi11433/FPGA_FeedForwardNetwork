@@ -89,6 +89,7 @@ module tb_chip_top;
         repeat(5) @(posedge tck);
         #1;
         trst_n = 1;
+        tms    = 0;  // TMS=0 so TestLogicReset → RunTestIdle on the next posedge
         @(posedge tck);
     endtask
 
