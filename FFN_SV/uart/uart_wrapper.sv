@@ -10,7 +10,8 @@ module uart_wrapper #(
     output logic [15:0] X  [0:N-1],          // 2x1 column vector
     output logic [15:0] b1 [0:N-1],
     output logic [15:0] b2 [0:N-1],
-    output logic        ready                 // one-cycle strobe: full frame received
+    output logic        ready,                // one-cycle strobe: full frame received
+    output logic [2:0]  dbg_state             // FSM state for debug
 );
 
    
@@ -46,6 +47,7 @@ module uart_wrapper #(
     localparam int IDX_W = $clog2(N+1);  // safe for all N
 
     state_t              curr_state;
+    assign dbg_state = curr_state;
     logic                byte_sel;              // 0 = low byte, 1 = high byte
     logic [IDX_W-1:0]    col_count;
     logic [IDX_W-1:0]    row_count;

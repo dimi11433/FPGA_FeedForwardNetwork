@@ -16,16 +16,19 @@ module ffn_uvm_tb;
     ffn_if #(.N(N)) ffn_vif(.clk(clk));
 
     top #(.N(N)) dut (
-        .clk   (clk),
-        .rst_n (ffn_vif.rst_n),
-        .start (1'b1),
-        .w1    (ffn_vif.w1),
-        .w2    (ffn_vif.w2),
-        .b1    (ffn_vif.b1),
-        .b2    (ffn_vif.b2),
-        .x     (ffn_vif.x),
-        .y     (ffn_vif.y),
-        .done  (done_dut)
+        .clk           (clk),
+        .rst_n         (ffn_vif.rst_n),
+        .start         (1'b1),
+        .w1            (ffn_vif.w1),
+        .w2            (ffn_vif.w2),
+        .b1            (ffn_vif.b1),
+        .b2            (ffn_vif.b2),
+        .x             (ffn_vif.x),
+        .y             (ffn_vif.y),
+        .done          (done_dut),
+        .dbg_mac_out   (),
+        .dbg_gelu_out  (),
+        .dbg_mac_out_2 ()
     );
 
     // Combinational RTL-accurate reference for exact scoreboard comparisons.

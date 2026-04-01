@@ -28,10 +28,26 @@ module main_top_uart_tb;
     int  idx;
 
     main_top #(.N(N)) dut (
-        .clk    (clk),
-        .rst_n  (rst_n),
-        .rx_bit (rx_bit),
-        .tx_bit (tx_bit)
+        .clk              (clk),
+        .rst_n            (rst_n),
+        .rx_bit           (rx_bit),
+        .tx_bit           (tx_bit),
+        .dbg_ready        (),
+        .dbg_done         (),
+        .dbg_ffn_start    (),
+        .dbg_rx_dv        (),
+        .dbg_tx_dv        (),
+        .dbg_tx_busy      (),
+        .dbg_wrapper_state(),
+        .dbg_w1_flat      (),
+        .dbg_w2_flat      (),
+        .dbg_x            (),
+        .dbg_b1           (),
+        .dbg_b2           (),
+        .dbg_mac_out      (),
+        .dbg_gelu_out     (),
+        .dbg_mac_out_2    (),
+        .dbg_y            ()
     );
 
     // Reference for expected final output vector bytes.

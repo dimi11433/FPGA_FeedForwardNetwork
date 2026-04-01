@@ -18,16 +18,19 @@ module tb_top;
     logic        done_dut;
 
     top #(.N(N)) dut (
-        .clk (clk),
-        .rst_n(rst_n),
-        .start(1'b1),
-        .w1  (w1),
-        .w2  (w2),
-        .b1  (b1),
-        .b2  (b2),
-        .x   (x),
-        .y   (y),
-        .done(done_dut)
+        .clk           (clk),
+        .rst_n         (rst_n),
+        .start         (1'b1),
+        .w1            (w1),
+        .w2            (w2),
+        .b1            (b1),
+        .b2            (b2),
+        .x             (x),
+        .y             (y),
+        .done          (done_dut),
+        .dbg_mac_out   (),
+        .dbg_gelu_out  (),
+        .dbg_mac_out_2 ()
     );
 
     initial begin
