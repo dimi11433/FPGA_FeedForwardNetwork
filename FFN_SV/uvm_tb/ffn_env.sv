@@ -30,9 +30,6 @@ class ffn_env extends uvm_env;
 
     virtual function void connect_phase(uvm_phase phase);
         super.connect_phase(phase);
-        // The monitor stamps both y_exp (from y_ref) and y_act (from DUT) into one transaction.
-        // Feed the same transactions into both scoreboard FIFOs so scoreboarding becomes a simple compare.
-        // (This leaves ref_model unused for now; expected values come from y_ref instead.)
         agt.mon.ap.connect(scb.exp_export);
         agt.mon.ap.connect(scb.act_export);
     endfunction

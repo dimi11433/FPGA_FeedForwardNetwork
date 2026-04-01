@@ -1,6 +1,3 @@
-`include "fp32_mul.sv"
-`include "fp32_add.sv"
-
 module mac8 #(parameter N = 2)(
     input clk,
     input rst_n,

@@ -1,6 +1,3 @@
-`include "fp32_mul.sv"
-`include "fp32_add.sv"
-
 // mac_8cyc: single lane MAC. Parameter N_ACCUM = number of product accumulations before adding bias.
 // For element-wise (a*b+c): N_ACCUM=1. For dot-product of length N: N products then bias.
 // BUG FIX: rhs_fp32 used cycle_count==8 (for N=8) but cycle_count never reached 8 when N=2,

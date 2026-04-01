@@ -1,9 +1,5 @@
-`include "fp32_mul.sv"
-`include "fp32_add.sv"
-`include "bf16_LUT.sv"
-`include "gelu-LUT.sv"
-
 // RTL-accurate combinational reference for top.sv (vector FFN form):
+// Requires fp32_mul, fp32_add, bf16_LUT, gelu_LUT to be compiled first.
 // y = W2 * GELU(W1*x + b1) + b2
 module ffn_ref_rtl #(parameter int N = 2) (
     input  wire [15:0] w2 [0:N-1][0:N-1],

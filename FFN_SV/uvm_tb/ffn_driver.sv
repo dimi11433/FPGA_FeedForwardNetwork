@@ -27,19 +27,25 @@ class ffn_driver extends uvm_driver #(ffn_transaction);
     endfunction
 
     virtual task run_phase(uvm_phase phase);
+        vif.cb.start     <= 0;
+        vif.cb.sample_en <= 0;
+        @(vif.cb);
+
         forever begin
             seq_item_port.get_next_item(req);
-            // Enqueue the expected result before we wait/sampling output
-            // so the scoreboard FIFO order matches.
             ap.write(req);
             drive_transaction(req);
             seq_item_port.item_done();
         end
     endtask
 
-    localparam int LATENCY = 20;  // Hold inputs this long, then sample once
+    // Pipeline latency: mac1(1) + gelu_reg(1) + mac2(1) + y_reg(1) + done_d1(1) + done(1) = ~6
+    // Use generous settle time to guarantee done has fired and y is stable.
+    localparam int SETTLE_CYCLES = 10;
+    localparam int IDLE_GAP      = 2;
 
     virtual task drive_transaction(ffn_transaction tr);
+        // Drive inputs
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) begin
                 vif.cb.w1[i][j] <= tr.w1[i][j];
@@ -50,16 +56,22 @@ class ffn_driver extends uvm_driver #(ffn_transaction);
             vif.cb.b2[i] <= tr.b2[i];
             vif.cb.x[i]  <= tr.x[i];
         end
-        vif.cb.rst_n     <= 1;  // ensure deasserted
-        vif.cb.sample_en <= 0;
+        vif.cb.rst_n <= 1;
 
-        // Keep inputs stable; DUT pipeline will settle to a steady output.
-        repeat (LATENCY-1) @(vif.cb);
+        // Assert start — hold for a few cycles to feed both pipeline layers
+        vif.cb.start <= 1;
+        repeat (SETTLE_CYCLES - 1) @(vif.cb);
 
-        // One-cycle sampling pulse for the monitor.
+        // Pulse sample_en so the monitor captures y and y_ref
         vif.cb.sample_en <= 1;
         @(vif.cb);
         vif.cb.sample_en <= 0;
+
+        // Deassert start — this is the key toggle coverage fix
+        vif.cb.start <= 0;
+
+        // Idle gap between transactions ensures start toggles 0→1→0
+        repeat (IDLE_GAP) @(vif.cb);
     endtask
 endclass
 

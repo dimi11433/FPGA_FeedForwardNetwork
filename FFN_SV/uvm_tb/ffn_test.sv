@@ -27,13 +27,25 @@ class ffn_test extends uvm_test;
         ffn_sequence seq;
         int num_txns;
         phase.raise_objection(this);
+
         seq = ffn_sequence::type_id::create("seq");
-        num_txns = 200;
+        num_txns = 500;
         void'($value$plusargs("NUM_TXNS=%d", num_txns));
         seq.num_transactions = num_txns;
-        `uvm_info("TEST", $sformatf("Running with NUM_TXNS=%0d (+ directed corners)", seq.num_transactions), UVM_LOW)
+
+        `uvm_info("TEST", $sformatf("Running: %0d directed corners + %0d random", 70, seq.num_transactions), UVM_LOW)
         seq.start(env.agt.sqr);
-        #1000;  // allow time for pipeline to drain
+
+        // Drain time: let pipeline flush after last transaction
+        #2000;
+
+        // Mid-sim reset pulse to exercise reset toggle on all registers
+        `uvm_info("TEST", "Applying mid-sim reset pulse for toggle coverage", UVM_LOW)
+        env.agt.drv.vif.cb.rst_n <= 0;
+        repeat (3) @(posedge env.agt.drv.vif.clk);
+        env.agt.drv.vif.cb.rst_n <= 1;
+        repeat (5) @(posedge env.agt.drv.vif.clk);
+
         phase.drop_objection(this);
     endtask
 endclass

@@ -32,11 +32,10 @@ class ffn_monitor extends uvm_monitor;
         forever begin
             @(vif.cb);
             if (vif.rst_n && vif.sample_en) begin
-                for (int i = 0; i < N; i++)
-                    begin
-                        y_dut_sample[i] = vif.cb.y[i];
-                        y_ref_sample[i] = vif.cb.y_ref[i];
-                    end
+                for (int i = 0; i < N; i++) begin
+                    y_dut_sample[i] = vif.cb.y[i];
+                    y_ref_sample[i] = vif.cb.y_ref[i];
+                end
                 push_transaction(y_ref_sample, y_dut_sample);
             end
         end
@@ -48,11 +47,10 @@ class ffn_monitor extends uvm_monitor;
     );
         ffn_transaction tr;
         tr = ffn_transaction::type_id::create("tr");
-        for (int i = 0; i < N; i++)
-            begin
-                tr.y_exp[i] = y_ref_sample[i];
-                tr.y_act[i] = y_dut_sample[i];
-            end
+        for (int i = 0; i < N; i++) begin
+            tr.y_exp[i] = y_ref_sample[i];
+            tr.y_act[i] = y_dut_sample[i];
+        end
         ap.write(tr);
     endfunction
 endclass

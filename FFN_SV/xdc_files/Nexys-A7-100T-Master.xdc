@@ -95,6 +95,7 @@ set_property -dict { PACKAGE_PIN D17   IOSTANDARD LVCMOS33 } [get_ports { jtag_t
 
 ## JTAG TCK is an external clock — constrain it (10 kHz max assumed, 100 us period)
 create_clock -name jtag_tck_clk -period 100.000 [get_ports { jtag_tck }]
+set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets jtag_tck_IBUF]
 
 ##Pmod Header JB
 #set_property -dict { PACKAGE_PIN D14   IOSTANDARD LVCMOS33 } [get_ports { JB[1] }]; #IO_L1P_T0_AD0P_15 Sch=jb[1]

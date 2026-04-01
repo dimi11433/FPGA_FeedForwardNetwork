@@ -17,12 +17,43 @@ class ffn_scoreboard extends uvm_scoreboard;
 
     int num_compared = 0;
     int num_matches  = 0;
-    int tolerance = 0;  // RTL-based y_ref should match bit-accurately
+    int tolerance    = 0;
+
+    // ---- Functional coverage ----
+    logic [15:0] cov_y0, cov_y1;
+    logic        cov_y0_sign, cov_y1_sign;
+    logic [7:0]  cov_y0_exp,  cov_y1_exp;
+
+    covergroup cg_output @(num_compared);
+        // Sign toggle: both positive and negative outputs observed
+        cp_y0_sign: coverpoint cov_y0_sign { bins pos = {0}; bins neg = {1}; }
+        cp_y1_sign: coverpoint cov_y1_sign { bins pos = {0}; bins neg = {1}; }
+
+        // Exponent range: zero, small, medium, large
+        cp_y0_exp: coverpoint cov_y0_exp {
+            bins exp_zero  = {0};
+            bins exp_lo    = {[1:64]};
+            bins exp_mid   = {[65:190]};
+            bins exp_hi    = {[191:254]};
+            bins exp_max   = {255};
+        }
+        cp_y1_exp: coverpoint cov_y1_exp {
+            bins exp_zero  = {0};
+            bins exp_lo    = {[1:64]};
+            bins exp_mid   = {[65:190]};
+            bins exp_hi    = {[191:254]};
+            bins exp_max   = {255};
+        }
+
+        // Cross: both lanes see both signs
+        cx_signs: cross cp_y0_sign, cp_y1_sign;
+    endgroup
 
     `uvm_component_utils(ffn_scoreboard)
 
     function new(string name, uvm_component parent = null);
         super.new(name, parent);
+        cg_output = new();
     endfunction
 
     virtual function void build_phase(uvm_phase phase);
@@ -52,18 +83,32 @@ class ffn_scoreboard extends uvm_scoreboard;
                 if (diff > tolerance)
                     match = 0;
             end
+
+            // Coverage sampling
+            cov_y0      = act_tr.y_act[0];
+            cov_y1      = act_tr.y_act[1];
+            cov_y0_sign = act_tr.y_act[0][15];
+            cov_y1_sign = act_tr.y_act[1][15];
+            cov_y0_exp  = act_tr.y_act[0][14:7];
+            cov_y1_exp  = act_tr.y_act[1][14:7];
+
             num_compared++;
             if (match)
                 num_matches++;
             else
-                `uvm_error("SCOREBOARD", $sformatf("Mismatch #%0d: exp[0]=0x%04h act[0]=0x%04h",
-                    num_compared, exp_tr.y_exp[0], act_tr.y_act[0]))
+                `uvm_error("SCOREBOARD", $sformatf(
+                    "Mismatch #%0d: exp={0x%04h,0x%04h} act={0x%04h,0x%04h}",
+                    num_compared,
+                    exp_tr.y_exp[0], exp_tr.y_exp[1],
+                    act_tr.y_act[0], act_tr.y_act[1]))
         end
     endtask
 
     virtual function void report_phase(uvm_phase phase);
         super.report_phase(phase);
-        `uvm_info("SCOREBOARD", $sformatf("Compared %0d, matched %0d", num_compared, num_matches), UVM_LOW)
+        `uvm_info("SCOREBOARD", $sformatf(
+            "Compared %0d, matched %0d | Output coverage: %.1f%%",
+            num_compared, num_matches, cg_output.get_coverage()), UVM_LOW)
     endfunction
 endclass
 
