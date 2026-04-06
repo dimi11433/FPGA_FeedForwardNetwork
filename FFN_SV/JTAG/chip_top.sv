@@ -92,7 +92,7 @@ module chip_top #(parameter N = 2) (
     // -------------------------
     // Instantiate Q8.8 top
     // -------------------------
-    top #(N) u_top (
+    (* DONT_TOUCH = "TRUE" *) top #(N) u_top (
         .clk           (clk),
         .rst_n         (rst_n),
         .w1            (w1),
@@ -111,7 +111,7 @@ module chip_top #(parameter N = 2) (
     // -------------------------
     // Instantiate dtmcs_reg
     // -------------------------
-    dtmcs_reg #(N) u_dtmcs_reg (
+    (* DONT_TOUCH = "TRUE" *) dtmcs_reg #(N) u_dtmcs_reg (
         .clk          (clk),
         .rst_n        (rst_n),
         .ready1       (dbg_ready1),
@@ -125,7 +125,7 @@ module chip_top #(parameter N = 2) (
     // FIX 2: dtmcs_status now
     // passed in as input port
     // -------------------------
-    dmi_reg #(N) u_dmi_reg (
+    (* DONT_TOUCH = "TRUE" *) dmi_reg #(N) u_dmi_reg (
         .clk           (clk),
         .rst_n         (rst_n),
         .dmi_addr      (dmi_addr),
@@ -182,7 +182,7 @@ module chip_top #(parameter N = 2) (
     // so Hardware Manager controls
     // the TAP directly
     // -------------------------
-    dmi_jtag u_dmi_jtag (
+    (* DONT_TOUCH = "TRUE" *) dmi_jtag u_dmi_jtag (
         .clk_i            (clk),
         .rst_ni           (rst_n),
         .testmode_i       (testmode_i),
@@ -200,5 +200,13 @@ module chip_top #(parameter N = 2) (
         .td_o             (vio_tdo),    // to VIO
         .tdo_oe_o         (vio_tdo_oe) // to VIO
     );
+
+    // -------------------------
+    // Drive top-level output ports from VIO/dmi_jtag signals.
+    // Without these assignments td_o and tdo_oe_o are undriven,
+    // causing opt_design to trace back and remove the entire logic cone.
+    // -------------------------
+    assign td_o     = vio_tdo;
+    assign tdo_oe_o = vio_tdo_oe;
 
 endmodule

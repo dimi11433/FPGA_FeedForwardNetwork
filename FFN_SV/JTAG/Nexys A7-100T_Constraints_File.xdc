@@ -1,5 +1,10 @@
 ## Nexys A7-100T Constraints for chip_top.sv
 ## Generated for JTAG DMI Q8.8 FFN Debug Project
+##
+## NOTE: JTAG TAP (dmi_jtag) is driven internally by VIO, not by external pins.
+## The JTAG ports below are top-level ports of chip_top and must be placed,
+## but they are not connected to dmi_jtag internally. Use Vivado Hardware
+## Manager / VIO to drive JTAG signals.
 
 ## ======================
 ## Clock - 100MHz system clock
@@ -20,7 +25,9 @@ set_property -dict { PACKAGE_PIN J15  IOSTANDARD LVCMOS33 } [get_ports { testmod
 
 ## ======================
 ## JTAG pins - mapped to Pmod Header JA
-## Connect external JTAG probe here
+## These ports exist on chip_top but are NOT connected to dmi_jtag internally.
+## dmi_jtag is driven by VIO probe outputs instead.
+## Pin assignments are required to avoid unconstrained I/O errors.
 ##
 ## JA Pin 1 = tck_i   (TCK)
 ## JA Pin 2 = tms_i   (TMS)
@@ -38,8 +45,7 @@ set_property -dict { PACKAGE_PIN D17  IOSTANDARD LVCMOS33 } [get_ports { td_o   
 set_property -dict { PACKAGE_PIN E17  IOSTANDARD LVCMOS33 } [get_ports { tdo_oe_o}];
 
 ## ======================
-## JTAG timing constraints
-## TCK runs much slower than system clock
+## No tck_pin clock needed: tck_i is not connected to dmi_jtag.
+## dmi_jtag uses vio_tck (VIO probe output) which is synchronous to sys_clk_pin
+## via the VIO IP. No additional clock domain or async group required.
 ## ======================
-create_clock -add -name tck_pin -period 100.00 -waveform {0 50} [get_ports { tck_i }];
-set_clock_groups -asynchronous -group [get_clocks sys_clk_pin] -group [get_clocks tck_pin];
