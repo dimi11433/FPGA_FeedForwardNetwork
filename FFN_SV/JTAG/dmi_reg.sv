@@ -49,7 +49,10 @@ module dmi_reg #(parameter N = 2) (
             resp_valid_reg <= 1'b0;
             resp_reg       <= 2'h0;
         end else begin
-            resp_valid_reg <= 1'b0;
+            // Do not auto-clear resp_valid — hold it high until next request.
+            // With VIO-driven TCK (slow), the TCK-domain FSM in WaitReadValid
+            // would miss a 1-cycle pulse. Holding it high lets the FSM sample
+            // it on the next TCK posedge regardless of timing.
             if (dmi_req_valid) begin
                 resp_valid_reg <= 1'b1;
                 resp_reg       <= 2'h0;
