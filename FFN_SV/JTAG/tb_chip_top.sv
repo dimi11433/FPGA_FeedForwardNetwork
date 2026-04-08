@@ -39,7 +39,15 @@ module tb_chip_top;
     logic tdo;
     logic tdo_oe;
 
-    // FFN datapath inputs are hardcoded inside chip_top (all 1.0 in Q8.8)
+    // ----------------------------------------
+    // FFN datapath signals — driven by testbench
+    // ----------------------------------------
+    logic [15:0] w1 [0:N-1][0:N-1];
+    logic [15:0] w2 [0:N-1][0:N-1];
+    logic [15:0] b1 [0:N-1][0:N-1];
+    logic [15:0] b2 [0:N-1][0:N-1];
+    logic [15:0] x  [0:N-1][0:N-1];
+    logic [15:0] y  [0:N-1][0:N-1];
 
     // ----------------------------------------
     // Capture register — shift in TDO bits here
@@ -50,7 +58,7 @@ module tb_chip_top;
     // ----------------------------------------
     // Instantiate the design under test
     // ----------------------------------------
-    chip_top #(.N(N)) dut (
+    chip_top_sim #(.N(N)) dut (
         .clk       (clk),
         .rst_n     (rst_n),
         .testmode_i(testmode_i),
@@ -59,7 +67,13 @@ module tb_chip_top;
         .trst_ni   (trst_n),
         .td_i      (tdi),
         .td_o      (tdo),
-        .tdo_oe_o  (tdo_oe)
+        .tdo_oe_o  (tdo_oe),
+        .w1        (w1),
+        .w2        (w2),
+        .b1        (b1),
+        .b2        (b2),
+        .x         (x),
+        .y         (y)
     );
 
     // ----------------------------------------
@@ -242,12 +256,14 @@ module tb_chip_top;
     //
     // 1. Initialize signals, hold reset low.
     // 2. Release system reset — FFN starts computing.
-    // 3. Wait 25 cycles — FFN pipeline latency.
-    // 4. JTAG reset — TAP goes to TestLogicReset
+    // 3. Load BF16 inputs (1.0 = 16'h3F80) so FFN
+    //    has valid data during pipeline wait.
+    // 4. Wait 25 cycles — FFN pipeline latency.
+    // 5. JTAG reset — TAP goes to TestLogicReset
     //    then RunTestIdle (trst_n low 5 cycles).
-    // 5. Shift IR = 5'h11 — loads DMIACCESS into
+    // 6. Shift IR = 5'h11 — loads DMIACCESS into
     //    jtag_ir_q, enabling dmi_select.
-    // 6. For each register address:
+    // 7. For each register address:
     //    a. DR shift 1 sends {addr, 0, READ}.
     //       UpdateDR fires → dmi_jtag FSM sees
     //       dmi_select & update → moves Idle→Read.
@@ -261,7 +277,7 @@ module tb_chip_top;
     //       {address_q, data_q, 00} into dr_q.
     //       ShiftDR clocks it out via TDO LSB-first.
     //       Testbench samples TDO on each negedge.
-    // 7. Compare each JTAG read to direct wire.
+    // 8. Compare each JTAG read to direct wire.
     // ----------------------------------------
     integer pass_count;
     integer fail_count;
@@ -289,10 +305,34 @@ module tb_chip_top;
         repeat(5) @(posedge clk);
         rst_n = 1;
         $display("=== System reset released ===");
-        $display("=== FFN inputs hardcoded to 1.0 (Q8.8 = 16'h0100) ===");
 
         // ----------------------------------
-        // 3. Wait for FFN pipeline to finish
+        // 3. Load BF16 inputs (1.0 = 16'h3F80)
+        // Must happen BEFORE the pipeline wait
+        // so the FFN has valid data to compute.
+        // BF16 format: sign[15] exp[14:7] mant[6:0]
+        // 1.0 = 0_01111111_0000000 = 16'h3F80
+        // ----------------------------------
+        // Use distinct BF16 values so address mismatches are caught
+        // 1.0=3F80  2.0=4000  0.5=3F00  1.5=3FC0
+        w1[0][0] = 16'h3F80;  w1[0][1] = 16'h4000;
+        w1[1][0] = 16'h3F00;  w1[1][1] = 16'h3FC0;
+
+        w2[0][0] = 16'h4000;  w2[0][1] = 16'h3F80;
+        w2[1][0] = 16'h3FC0;  w2[1][1] = 16'h3F00;
+
+        b1[0][0] = 16'h3F80;  b1[0][1] = 16'h3F80;
+        b1[1][0] = 16'h3F80;  b1[1][1] = 16'h3F80;
+
+        b2[0][0] = 16'h3F80;  b2[0][1] = 16'h3F80;
+        b2[1][0] = 16'h3F80;  b2[1][1] = 16'h3F80;
+
+        x[0][0]  = 16'h3F80;  x[0][1]  = 16'h4000;
+        x[1][0]  = 16'h3F00;  x[1][1]  = 16'h3FC0;
+        $display("=== FFN inputs loaded: distinct BF16 values ===");
+
+        // ----------------------------------
+        // 4. Wait for FFN pipeline to finish
         // ----------------------------------
         repeat(25) @(posedge clk);
         $display("=== FFN pipeline done ===");
@@ -300,7 +340,7 @@ module tb_chip_top;
         $display("    y[1][0]=%04h  y[1][1]=%04h", dut.y[1][0], dut.y[1][1]);
 
         // ----------------------------------
-        // 4. JTAG reset
+        // 5. JTAG reset
         // trst_n low for 5 TCK cycles forces
         // TAP to TestLogicReset. tms=0 on
         // release moves it to RunTestIdle.
@@ -309,7 +349,7 @@ module tb_chip_top;
         $display("=== JTAG reset done — TAP in RunTestIdle ===");
 
         // ----------------------------------
-        // 5. Select DMIACCESS instruction
+        // 6. Select DMIACCESS instruction
         // TMS: 1,1,0,0 → ShiftIR
         // Shift in 5'h11 LSB-first
         // TMS: 1,0 → UpdateIR → RunTestIdle
@@ -321,7 +361,7 @@ module tb_chip_top;
         $display("");
 
         // ----------------------------------
-        // 6. Read all DMI registers
+        // 7. Read all DMI registers
         // IR stays DMIACCESS for all reads.
         // Each jtag_dmi_read call does:
         //   DR shift 1 → wait 100 → DR shift 2
@@ -413,7 +453,7 @@ module tb_chip_top;
         if (captured_dr[1:0] == 2'b00) pass_count++; else fail_count++;
 
         // ----------------------------------
-        // 7. Final summary
+        // 8. Final summary
         // ----------------------------------
         $display("");
         $display("==========================================");
