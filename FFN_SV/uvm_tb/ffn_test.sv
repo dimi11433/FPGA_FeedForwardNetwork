@@ -2,7 +2,7 @@
 `define FFN_TEST_SV
 
 `include "uvm_macros.svh"
-`include "uvm_pkg.sv"
+// `include "uvm_pkg.sv"
 import uvm_pkg::*;
 `include "ffn_env.sv"
 `include "ffn_sequence.sv"

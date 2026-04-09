@@ -2,7 +2,7 @@
 `define FFN_SEQUENCE_SV
 
 `include "uvm_macros.svh"
-`include "uvm_pkg.sv"
+// `include "uvm_pkg.sv"
 import uvm_pkg::*;
 `include "ffn_transaction.sv"
 

@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 
 `include "uvm_macros.svh"
-`include "uvm_pkg.sv"
+// `include "uvm_pkg.sv"
 `include "ffn_if.sv"
 `include "ffn_pkg.sv"
 `include "ffn_ref_rtl.sv"
