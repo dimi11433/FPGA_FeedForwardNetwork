@@ -15,8 +15,29 @@ module asic_top #(
     input  logic trst_n,
     input  logic tdi,
     output logic tdo,
-    output logic tdo_en
+    output logic tdo_en,
+
+    // DFT scan pads
+    input  logic scan_in,
+    output logic scan_out,
+    input  logic scan_en,
+    input  logic test_mode
 );
+
+    // ---- Async-assert / sync-deassert reset synchronizer ----
+    // Ensures rst_n deassertion is clean w.r.t. clk so all flops exit
+    // reset on the same clock edge.  Assertion is still immediate (async).
+    logic rst_n_sync_s1, rst_n_sync;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            rst_n_sync_s1 <= 1'b0;
+            rst_n_sync    <= 1'b0;
+        end else begin
+            rst_n_sync_s1 <= 1'b1;
+            rst_n_sync    <= rst_n_sync_s1;
+        end
+    end
 
     // ---- Debug observation bus from main_top ----
     logic       dbg_ready, dbg_done, dbg_ffn_start;
@@ -37,9 +58,9 @@ module asic_top #(
     logic jtag_force_start_s1, jtag_force_start_sync;
     logic jtag_force_rst_s1,   jtag_force_rst_sync;
 
-    // Two-flop synchroniser: TCK → clk
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
+    // Two-flop synchroniser: TCK → clk (uses synchronized reset)
+    always_ff @(posedge clk or negedge rst_n_sync) begin
+        if (!rst_n_sync) begin
             jtag_force_start_s1   <= 1'b0;
             jtag_force_start_sync <= 1'b0;
             jtag_force_rst_s1     <= 1'b0;
@@ -52,9 +73,9 @@ module asic_top #(
         end
     end
 
-    // Effective reset: either pad reset or JTAG-forced reset
+    // Effective reset: synchronized pad reset OR JTAG-forced reset
     logic rst_n_eff;
-    assign rst_n_eff = rst_n & ~jtag_force_rst_sync;
+    assign rst_n_eff = rst_n_sync & ~jtag_force_rst_sync;
 
     // ---- FFN design core ----
     main_top #(.N(N)) u_ffn (

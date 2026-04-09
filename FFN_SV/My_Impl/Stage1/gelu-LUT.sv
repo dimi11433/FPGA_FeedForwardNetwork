@@ -1,5 +1,5 @@
 module gelu_LUT(
-    input [4:0] index_in,
+    input [5:0] index_in,
     output logic [15:0] slope_out,
     output logic [15:0] intercept_out
 

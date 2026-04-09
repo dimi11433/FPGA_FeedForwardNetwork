@@ -9,7 +9,7 @@ import uvm_pkg::*;
 class ffn_sequence extends uvm_sequence #(ffn_transaction);
     `uvm_object_utils(ffn_sequence)
 
-    rand int num_transactions = 500;
+    rand int num_transactions = 1500;
 
     constraint reasonable_num { num_transactions inside {[1:5000]}; }
 
@@ -202,6 +202,151 @@ class ffn_sequence extends uvm_sequence #(ffn_transaction);
         send_gelu_target(16'h3D00, 16'h4100); // +0.03125, +2.5
 
         // =============================================================
+        // Phase 3b: fp32_mul branch coverage
+        // =============================================================
+        `uvm_info("SEQ", "Phase 3b: fp32_mul overflow / underflow / normalization", UVM_LOW)
+
+        // Overflow → INF: e_sum_wide >= 382.  BF16 exp=191 → 191+191=382
+        send_uniform(16'h5F80, 16'h3F80, 16'h0000, 16'h0000, 16'h5F80);
+        send_uniform(16'hDF80, 16'h3F80, 16'h0000, 16'h0000, 16'h5F80); // negative sign
+        send_uniform(16'h6000, 16'h3F80, 16'h0000, 16'h0000, 16'h6000); // exp=192, deeper overflow
+        // Overflow in layer-2 as well (W2 large × GELU output)
+        send_full(16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h5F80, 16'h0000, 16'h0000, 16'h5F80,
+                  16'h0000, 16'h0000, 16'h0000, 16'h0000,
+                  16'h4000, 16'h4000);
+
+        // Underflow → zero: e_sum_wide <= 127.  BF16 exp=32 → 32+32=64
+        send_uniform(16'h1000, 16'h3F80, 16'h0000, 16'h0000, 16'h1000);
+        send_uniform(16'h1F80, 16'h3F80, 16'h0000, 16'h0000, 16'h1F80); // exp=63, 63+63=126
+        send_uniform(16'h0480, 16'h3F80, 16'h0000, 16'h0000, 16'h0480); // exp=9, deep underflow
+
+        // m_prod[47]=1: mantissa product carries. 1.5*1.5=2.25 → carry
+        send_uniform(16'h3FC0, 16'h3F80, 16'h0000, 16'h0000, 16'h3FC0); // 1.5
+        send_uniform(16'h3FE0, 16'h3F80, 16'h0000, 16'h0000, 16'h3FE0); // 1.75
+        send_uniform(16'h3FFF, 16'h3F80, 16'h0000, 16'h0000, 16'h3FFF); // ~2.0-eps, max mantissa
+
+        // m_prod[47]=0: 1.0*1.0 → no carry (mantissa = 1.0 * 1.0 = 1.0, bit 46)
+        send_uniform(16'h3F80, 16'h3F80, 16'h0000, 16'h0000, 16'h3F80); // clean 1.0*1.0
+        send_uniform(16'h3F84, 16'h3F80, 16'h0000, 16'h0000, 16'h3F84); // 1.0+tiny * 1.0+tiny
+
+        // =============================================================
+        // Phase 3c: fp32_add branch coverage
+        // =============================================================
+        `uvm_info("SEQ", "Phase 3c: fp32_add INF / cancellation / carry paths", UVM_LOW)
+
+        // INF + finite: overflow product feeds into accumulator chain
+        send_full(16'h5F80, 16'h3F80, 16'h3F80, 16'h5F80,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h3F80, 16'h3F80, 16'h0000, 16'h0000,
+                  16'h5F80, 16'h3F80);
+
+        // INF + INF: both products overflow → add(INF, INF) in chain
+        send_full(16'h5F80, 16'h5F80, 16'h5F80, 16'h5F80,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h0000, 16'h0000, 16'h0000, 16'h0000,
+                  16'h5F80, 16'h5F80);
+
+        // INF + (-INF): opposite sign overflow products
+        send_full(16'h5F80, 16'hDF80, 16'hDF80, 16'h5F80,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h0000, 16'h0000, 16'h0000, 16'h0000,
+                  16'h5F80, 16'h5F80);
+
+        // Carry-out in fp32_add (mpos==24): same-sign add overflows mantissa
+        // 1.5 + 1.5 = 3.0 → m_raw bit 24 set
+        send_full(16'h3FC0, 16'h3FC0, 16'h3FC0, 16'h3FC0,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h0000, 16'h0000, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+        // Bigger carry: 1.9375 + 1.9375 = 3.875
+        send_full(16'h3FF8, 16'h3FF8, 16'h3FF8, 16'h3FF8,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h0000, 16'h0000, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+
+        // Subtraction where aligned-smaller mantissa > larger-mantissa
+        // Equal exp, opposite signs: 1.25 + (-1.5) → m_b > m_a after alignment
+        send_full(16'h3FA0, 16'h0000, 16'h0000, 16'h3FA0,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'hBFC0, 16'hBFC0, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+        // 1.125 + (-1.75) → smaller wins
+        send_full(16'h3F90, 16'h0000, 16'h0000, 16'h3F90,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'hBFE0, 16'hBFE0, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+
+        // Exact cancellation → m_raw == 0
+        send_full(16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'hBF80, 16'hBF80, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+
+        // Near-cancellation at different magnitudes to hit low msb_pos positions
+        // Result ~ 2^-1 → mpos ~22, lshift ~1
+        send_full(16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'hBF40, 16'hBF40, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+        // Result ~ 2^-3 → larger shift
+        send_full(16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'hBF70, 16'hBF70, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+        // Result ~ 2^-5
+        send_full(16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'hBF7C, 16'hBF7C, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+        // Result ~ 2^-7
+        send_full(16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'hBF7F, 16'hBF7F, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+
+        // Rounding carry: mantissa near max that rounds up
+        send_full(16'h3FFF, 16'h0000, 16'h0000, 16'h3FFF,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h3400, 16'h3400, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+
+        // Post-add exponent overflow (e_final >= 0xFF)
+        // Two very large same-sign values: exp=254 + exp=254 same-sign add
+        send_full(16'h7F00, 16'h7F00, 16'h3F80, 16'h3F80,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h0000, 16'h0000, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+        // Another path: large product + large bias
+        send_full(16'h7F00, 16'h0000, 16'h0000, 16'h7F00,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h7F00, 16'h7F00, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+
+        // Exponent underflow during normalization: small values nearly cancel
+        send_full(16'h3080, 16'h0000, 16'h0000, 16'h3080,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'hB070, 16'hB070, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+
+        // Zero in specific positions (zero_b paths in chain adders)
+        // x[0]!=0, x[1]=0 → prod[1]=0 → gen_add[1] sees zero_b
+        send_full(16'h3F80, 16'h3F80, 16'h3F80, 16'h3F80,
+                  16'h3F80, 16'h3F80, 16'h3F80, 16'h3F80,
+                  16'h0000, 16'h0000, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h0000);
+        // x[0]=0, x[1]!=0
+        send_full(16'h3F80, 16'h3F80, 16'h3F80, 16'h3F80,
+                  16'h3F80, 16'h3F80, 16'h3F80, 16'h3F80,
+                  16'h0000, 16'h0000, 16'h0000, 16'h0000,
+                  16'h0000, 16'h3F80);
+        // w1 row has one zero column → one product zero, other not
+        send_full(16'h0000, 16'h3F80, 16'h3F80, 16'h0000,
+                  16'h3F80, 16'h0000, 16'h0000, 16'h3F80,
+                  16'h0000, 16'h0000, 16'h0000, 16'h0000,
+                  16'h3F80, 16'h3F80);
+
+        // =============================================================
         // Phase 4: Constrained random (GELU-active region bias)
         // =============================================================
         `uvm_info("SEQ", $sformatf("Phase 4: %0d constrained random transactions", num_transactions/2), UVM_LOW)
@@ -218,14 +363,64 @@ class ffn_sequence extends uvm_sequence #(ffn_transaction);
         // =============================================================
         // Phase 5: Unconstrained random (full bf16 range)
         // =============================================================
-        `uvm_info("SEQ", $sformatf("Phase 5: %0d unconstrained random transactions", num_transactions - num_transactions/2), UVM_LOW)
+        `uvm_info("SEQ", $sformatf("Phase 5: %0d unconstrained random transactions", num_transactions/3), UVM_LOW)
 
-        for (int i = num_transactions/2; i < num_transactions; i++) begin
+        for (int i = 0; i < num_transactions/3; i++) begin
             req = ffn_transaction::type_id::create($sformatf("full_rand_%0d", i));
             start_item(req);
             req.gelu_active_region.constraint_mode(0);
             if (!req.randomize()) begin
                 `uvm_error("SEQ", $sformatf("Randomization failed at txn %0d", i))
+            end
+            finish_item(req);
+        end
+
+        // =============================================================
+        // Phase 6: Extreme-exponent random (fp32_mul overflow/underflow)
+        // Weights and x biased toward very small or very large exponents
+        // to exercise fp32_mul underflow (e_sum<=127) and overflow (e_sum>=382)
+        // =============================================================
+        `uvm_info("SEQ", $sformatf("Phase 6: %0d extreme-exponent random", num_transactions/6), UVM_LOW)
+
+        for (int i = 0; i < num_transactions/6; i++) begin
+            req = ffn_transaction::type_id::create($sformatf("extreme_%0d", i));
+            start_item(req);
+            req.valid_bf16.constraint_mode(0);
+            req.gelu_active_region.constraint_mode(0);
+            if (!req.randomize() with {
+                foreach (w1[r,c]) { w1[r][c][14:7] inside {[8'h01:8'h20], [8'hC0:8'hFE]}; }
+                foreach (w2[r,c]) { w2[r][c][14:7] inside {[8'h01:8'h20], [8'hC0:8'hFE]}; }
+                foreach (x[k])    { x[k][14:7]     inside {[8'h01:8'h20], [8'hC0:8'hFE]}; }
+                foreach (b1[k])   { b1[k][14:7]    inside {[8'h00:8'h30], [8'hC0:8'hFE]}; }
+                foreach (b2[k])   { b2[k][14:7]    inside {[8'h00:8'h30], [8'hC0:8'hFE]}; }
+            }) begin
+                `uvm_error("SEQ", $sformatf("Randomization failed at extreme txn %0d", i))
+            end
+            finish_item(req);
+        end
+
+        // =============================================================
+        // Phase 7: Near-cancellation random (fp32_add normalization)
+        // Sets bias close to -(w*x) to force large left shifts in fp32_add
+        // =============================================================
+        `uvm_info("SEQ", $sformatf("Phase 7: %0d near-cancellation random", num_transactions/6), UVM_LOW)
+
+        for (int i = 0; i < num_transactions/6; i++) begin
+            req = ffn_transaction::type_id::create($sformatf("cancel_%0d", i));
+            start_item(req);
+            req.valid_bf16.constraint_mode(0);
+            req.gelu_active_region.constraint_mode(0);
+            if (!req.randomize() with {
+                foreach (w1[r,c]) { (r == c) -> w1[r][c][14:7] inside {[8'h7C:8'h82]}; 
+                                    (r != c) -> w1[r][c] == 16'h0000; }
+                foreach (x[k])    { x[k][14:7] inside {[8'h7C:8'h82]}; }
+                foreach (b1[k])   { b1[k][15] != x[k][15];
+                                    b1[k][14:7] inside {[8'h7C:8'h82]}; }
+                foreach (b2[k])   { b2[k] == 16'h0000; }
+                foreach (w2[r,c]) { (r == c) -> w2[r][c] == 16'h3F80;
+                                    (r != c) -> w2[r][c] == 16'h0000; }
+            }) begin
+                `uvm_error("SEQ", $sformatf("Randomization failed at cancel txn %0d", i))
             end
             finish_item(req);
         end

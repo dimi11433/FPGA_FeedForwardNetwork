@@ -1,6 +1,6 @@
 module bf16_LUT(
     input [15:0] data_in,
-    output logic [4:0] data_out
+    output logic [5:0] data_out
 
 );
 

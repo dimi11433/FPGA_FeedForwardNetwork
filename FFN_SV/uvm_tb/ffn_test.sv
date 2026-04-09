@@ -29,11 +29,11 @@ class ffn_test extends uvm_test;
         phase.raise_objection(this);
 
         seq = ffn_sequence::type_id::create("seq");
-        num_txns = 500;
+        num_txns = 1500;
         void'($value$plusargs("NUM_TXNS=%d", num_txns));
         seq.num_transactions = num_txns;
 
-        `uvm_info("TEST", $sformatf("Running: %0d directed corners + %0d random", 70, seq.num_transactions), UVM_LOW)
+        `uvm_info("TEST", $sformatf("Running: directed corners + %0d random (across 3 phases)", seq.num_transactions), UVM_LOW)
         seq.start(env.agt.sqr);
 
         // Drain time: let pipeline flush after last transaction

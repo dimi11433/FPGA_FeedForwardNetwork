@@ -59,7 +59,7 @@ module top#(parameter N = 2)(
             mac8 #(N) mac2_inst (
                 .clk       (clk),
                 .rst_n     (rst_n),
-                .start     (start_d2),
+                .start     (start_d3),
                 .data_in_a (w2[k]),        // full row k of W2
                 .data_in_b (gelu_out),     // full hidden vector
                 .data_in_c (b2[k]),        // scalar bias for output neuron k

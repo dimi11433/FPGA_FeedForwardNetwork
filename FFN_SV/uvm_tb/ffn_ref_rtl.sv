@@ -36,7 +36,7 @@ module ffn_ref_rtl #(parameter int N = 2) (
     logic [31:0] mac1_fp32 [0:N-1];
     logic [15:0] mac1_bf16 [0:N-1];
 
-    logic [4:0]  gelu_idx [0:N-1];
+    logic [5:0]  gelu_idx [0:N-1];
     logic [15:0] gelu_slope_bf16     [0:N-1];
     logic [15:0] gelu_intercept_bf16 [0:N-1];
     logic [31:0] gelu_slope_fp32     [0:N-1];

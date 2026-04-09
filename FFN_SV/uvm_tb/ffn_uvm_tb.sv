@@ -13,7 +13,7 @@ module ffn_uvm_tb;
     localparam int N = 2;
 
     logic clk;
-
+    
     ffn_if #(.N(N)) ffn_vif(.clk(clk));
 
     top #(.N(N)) dut (

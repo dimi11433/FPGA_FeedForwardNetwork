@@ -24,7 +24,7 @@ class ffn_scoreboard extends uvm_scoreboard;
     logic        cov_y0_sign, cov_y1_sign;
     logic [7:0]  cov_y0_exp,  cov_y1_exp;
 
-    covergroup cg_output @(num_compared);
+    covergroup cg_output;
         // Sign toggle: both positive and negative outputs observed
         cp_y0_sign: coverpoint cov_y0_sign { bins pos = {0}; bins neg = {1}; }
         cp_y1_sign: coverpoint cov_y1_sign { bins pos = {0}; bins neg = {1}; }
@@ -54,6 +54,7 @@ class ffn_scoreboard extends uvm_scoreboard;
     function new(string name, uvm_component parent = null);
         super.new(name, parent);
         cg_output = new();
+        cg_output.start();
     endfunction
 
     virtual function void build_phase(uvm_phase phase);
@@ -91,6 +92,7 @@ class ffn_scoreboard extends uvm_scoreboard;
             cov_y1_sign = act_tr.y_act[1][15];
             cov_y0_exp  = act_tr.y_act[0][14:7];
             cov_y1_exp  = act_tr.y_act[1][14:7];
+            cg_output.sample();
 
             num_compared++;
             if (match)

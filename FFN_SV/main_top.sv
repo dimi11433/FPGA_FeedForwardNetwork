@@ -23,11 +23,20 @@ module main_top #(parameter int N = 2)(
     output logic [15:0] dbg_y        [0:N-1]
 );
 
+    // UART wrapper outputs (directly from wrapper — not used by FFN)
+    logic [15:0] w1_raw [0:N-1][0:N-1];
+    logic [15:0] w2_raw [0:N-1][0:N-1];
+    logic [15:0] b1_raw [0:N-1];
+    logic [15:0] b2_raw [0:N-1];
+    logic [15:0] x_raw  [0:N-1];
+
+    // Pipeline-registered copies fed to the FFN (breaks UART→MAC critical path)
     logic [15:0] w1 [0:N-1][0:N-1];
     logic [15:0] w2 [0:N-1][0:N-1];
     logic [15:0] b1 [0:N-1];
     logic [15:0] b2 [0:N-1];
     logic [15:0] x  [0:N-1];
+
     logic [15:0] y [0:N-1];
     logic [7:0] tx_byte;
     logic [7:0] rx_byte;
@@ -37,40 +46,20 @@ module main_top #(parameter int N = 2)(
     logic tx_busy;
     logic tx_active;
     logic ready;
+    logic ready_d1;
     logic done;
-    // UVM used start=1 every cycle so GELU + MAC pipeline could settle. A one-cycle
-    // uart_wrapper.ready pulse is too short — stretch start so layer2 sees fresh gelu_out.
+
     localparam int unsigned FFN_START_HOLD = 16;
     logic [4:0] ffn_start_cnt;
-    logic [4:0] ffn_start_cnt_prev;
     logic       ffn_start;
-    // ffn_done is taken directly from top.done.
-
-    always_ff @(posedge clk) begin
-        if (!rst_n)
-            ffn_start_cnt <= 5'd0;
-        else if (ready)
-            ffn_start_cnt <= 5'(FFN_START_HOLD);
-        else if (ffn_start_cnt != 5'd0)
-            ffn_start_cnt <= ffn_start_cnt - 5'd1;
-    end
-
-    assign ffn_start = (ffn_start_cnt != 5'd0);
-
-    always_ff @(posedge clk) begin
-        if (!rst_n)
-            ffn_start_cnt_prev <= 5'd0;
-        else
-            ffn_start_cnt_prev <= ffn_start_cnt;
-    end
 
     uart_rx #(.CLKS_PER_BIT(86)) uart_rx_module(
         .i_clock(clk),
+        .i_rst_n(rst_n),
         .i_Rx_serial(rx_bit),
         .o_Rx_DV(rx_dv),
         .o_Rx_byte(rx_byte)
     );
-    //Firstly get the data fron receiver and send to wrapper
 
     logic [2:0] wrapper_state;
 
@@ -79,16 +68,52 @@ module main_top #(parameter int N = 2)(
         .rst_n(rst_n),
         .data_in(rx_byte),
         .rx(rx_dv),
-        .W1(w1),
-        .W2(w2),
-        .b1(b1),
-        .b2(b2),
-        .X(x),
+        .W1(w1_raw),
+        .W2(w2_raw),
+        .b1(b1_raw),
+        .b2(b2_raw),
+        .X(x_raw),
         .ready(ready),
         .dbg_state(wrapper_state)
     );
 
-    //then we need to send data to the top level module
+    // Pipeline register: latch UART wrapper outputs on `ready` to break
+    // the combinational path from uart_wrapper regs into the MAC datapath.
+    always_ff @(posedge clk) begin
+        if (!rst_n) begin
+            for (int r = 0; r < N; r++) begin
+                for (int c = 0; c < N; c++) begin
+                    w1[r][c] <= '0;
+                    w2[r][c] <= '0;
+                end
+                b1[r] <= '0;
+                b2[r] <= '0;
+                x[r]  <= '0;
+            end
+            ready_d1 <= 1'b0;
+        end else begin
+            ready_d1 <= ready;
+            if (ready) begin
+                w1 <= w1_raw;
+                w2 <= w2_raw;
+                b1 <= b1_raw;
+                b2 <= b2_raw;
+                x  <= x_raw;
+            end
+        end
+    end
+
+    // Start stretcher now triggers off ready_d1 (one cycle after data is registered)
+    always_ff @(posedge clk) begin
+        if (!rst_n)
+            ffn_start_cnt <= 5'd0;
+        else if (ready_d1)
+            ffn_start_cnt <= 5'(FFN_START_HOLD);
+        else if (ffn_start_cnt != 5'd0)
+            ffn_start_cnt <= ffn_start_cnt - 5'd1;
+    end
+
+    assign ffn_start = (ffn_start_cnt != 5'd0);
 
     logic [15:0] mac_out_dbg   [0:N-1];
     logic [15:0] gelu_out_dbg  [0:N-1];
@@ -125,6 +150,7 @@ module main_top #(parameter int N = 2)(
     //then we send data to the uart_tx
     uart_tx #(.CLKS_PER_BIT(86))uart_tx_module(
         .i_Clock(clk),
+        .i_rst_n(rst_n),
         .i_Tx_DV(tx_dv),
         .i_Tx_Byte(tx_byte),
         .o_Tx_Active(tx_active),

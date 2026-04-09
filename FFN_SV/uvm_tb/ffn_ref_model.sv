@@ -46,9 +46,9 @@ class ffn_ref_model extends uvm_subscriber #(ffn_transaction);
     //   y_fp32 = slope_fp32 * x_fp32 + intercept_fp32
     //   y_bf16 = fp32_to_bf16(y_fp32) (same rounding rule as RTL)
 
-    virtual function logic [4:0] bf16_to_gelu_index(input logic [15:0] data_in);
+    virtual function logic [5:0] bf16_to_gelu_index(input logic [15:0] data_in);
         logic sign;
-        logic [4:0] idx;
+        logic [5:0] idx;
         sign = data_in[15];
         idx   = 5'd0;
         if (sign) begin
@@ -92,7 +92,7 @@ class ffn_ref_model extends uvm_subscriber #(ffn_transaction);
         return idx;
     endfunction
 
-    virtual function void gelu_lut(input  logic [4:0] index_in,
+    virtual function void gelu_lut(input  logic [5:0] index_in,
                                     output logic [15:0] slope_out,
                                     output logic [15:0] intercept_out);
         slope_out     = 16'h0000;
@@ -137,7 +137,7 @@ class ffn_ref_model extends uvm_subscriber #(ffn_transaction);
     endfunction
 
     virtual function logic [15:0] gelu_pwl_bf16(input logic [15:0] x_bf16);
-        logic [4:0]  idx;
+        logic [5:0]  idx;
         logic [15:0] slope_bf16, intercept_bf16;
         shortreal x_fp32;
         shortreal slope_fp32;
