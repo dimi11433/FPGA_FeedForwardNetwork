@@ -1,4 +1,7 @@
-module fpga_top (
+// Nexys A7 top: 100 MHz → 10 MHz, UART + optional JTAG on Pmod JA
+module fpga_top #(
+    parameter int N = 2
+) (
     input  logic clk_100mhz,
     input  logic cpu_resetn,   // active-low pushbutton on Nexys A7
     input  logic uart_rxd,     // FT2232HQ → FPGA  (pin C4)
@@ -13,8 +16,6 @@ module fpga_top (
     input  logic jtag_trst_n   // JA[7] pin D17
 );
 
-    localparam int N = 2;
-
     logic clk_10mhz;
     logic clk_locked;
 
@@ -26,14 +27,21 @@ module fpga_top (
         .locked   (clk_locked)
     );
 
-    // Synchronous reset: hold design in reset until PLL locks
+    // Async-assert / sync-deassert: cpu_resetn → 10 MHz domain, then gate with PLL lock
+    logic cpu_rst_s1, cpu_rst_n_sync;
     logic rst_n_sync;
-    logic [2:0] rst_pipe;
 
-    always_ff @(posedge clk_10mhz) begin
-        rst_pipe   <= {rst_pipe[1:0], clk_locked & cpu_resetn};
-        rst_n_sync <= rst_pipe[2];
+    always_ff @(posedge clk_10mhz or negedge cpu_resetn) begin
+        if (!cpu_resetn) begin
+            cpu_rst_s1     <= 1'b0;
+            cpu_rst_n_sync <= 1'b0;
+        end else begin
+            cpu_rst_s1     <= 1'b1;
+            cpu_rst_n_sync <= cpu_rst_s1;
+        end
     end
+
+    assign rst_n_sync = cpu_rst_n_sync & clk_locked;
 
     // ---- Debug observation bus ----
     logic       dbg_ready, dbg_done, dbg_ffn_start;
