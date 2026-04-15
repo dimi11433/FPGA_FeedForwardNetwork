@@ -83,19 +83,17 @@ set_property -dict { PACKAGE_PIN C12   IOSTANDARD LVCMOS33 } [get_ports { cpu_re
 
 
 ##Pmod Headers
-##Pmod Header JA — JTAG debug interface
-set_property -dict { PACKAGE_PIN C17   IOSTANDARD LVCMOS33 } [get_ports { jtag_tck }];    #JA[1] — TCK
-set_property -dict { PACKAGE_PIN D18   IOSTANDARD LVCMOS33 } [get_ports { jtag_tms }];    #JA[2] — TMS
-set_property -dict { PACKAGE_PIN E18   IOSTANDARD LVCMOS33 } [get_ports { jtag_tdi }];    #JA[3] — TDI
-set_property -dict { PACKAGE_PIN G17   IOSTANDARD LVCMOS33 } [get_ports { jtag_tdo }];    #JA[4] — TDO
-set_property -dict { PACKAGE_PIN D17   IOSTANDARD LVCMOS33 } [get_ports { jtag_trst_n }]; #JA[7] — TRST_N
+## Pmod JA — optional JTAG (not used: fpga_top is UART-only; enable only if top has jtag_* ports)
+#set_property -dict { PACKAGE_PIN C17   IOSTANDARD LVCMOS33 } [get_ports { jtag_tck }];    #JA[1] — TCK
+#set_property -dict { PACKAGE_PIN D18   IOSTANDARD LVCMOS33 } [get_ports { jtag_tms }];    #JA[2] — TMS
+#set_property -dict { PACKAGE_PIN E18   IOSTANDARD LVCMOS33 } [get_ports { jtag_tdi }];    #JA[3] — TDI
+#set_property -dict { PACKAGE_PIN G17   IOSTANDARD LVCMOS33 } [get_ports { jtag_tdo }];    #JA[4] — TDO
+#set_property -dict { PACKAGE_PIN D17   IOSTANDARD LVCMOS33 } [get_ports { jtag_trst_n }]; #JA[7] — TRST_N
 #set_property -dict { PACKAGE_PIN E17   IOSTANDARD LVCMOS33 } [get_ports { JA[8] }]; #IO_L16P_T2_A28_15 Sch=ja[8]
 #set_property -dict { PACKAGE_PIN F18   IOSTANDARD LVCMOS33 } [get_ports { JA[9] }]; #IO_L22N_T3_A16_15 Sch=ja[9]
 #set_property -dict { PACKAGE_PIN G18   IOSTANDARD LVCMOS33 } [get_ports { JA[10] }]; #IO_L22P_T3_A17_15 Sch=ja[10]
-
-## JTAG TCK is an external clock — constrain it (10 kHz max assumed, 100 us period)
-create_clock -name jtag_tck_clk -period 100.000 [get_ports { jtag_tck }]
-set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets jtag_tck_IBUF]
+#create_clock -name jtag_tck_clk -period 100.000 [get_ports { jtag_tck }]
+#set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets jtag_tck_IBUF]
 
 ##Pmod Header JB
 #set_property -dict { PACKAGE_PIN D14   IOSTANDARD LVCMOS33 } [get_ports { JB[1] }]; #IO_L1P_T0_AD0P_15 Sch=jb[1]

@@ -1,4 +1,4 @@
-// Nexys A7 top: 100 MHz → 10 MHz, UART + optional JTAG on Pmod JA
+// Nexys A7 top: 100 MHz → 10 MHz, UART (USB bridge)
 module fpga_top #(
     parameter int N = 2
 ) (
@@ -6,14 +6,7 @@ module fpga_top #(
     input  logic cpu_resetn,   // active-low pushbutton on Nexys A7
     input  logic uart_rxd,     // FT2232HQ → FPGA  (pin C4)
     output logic uart_txd,     // FPGA → FT2232HQ  (pin D4)
-    output logic led_busy,     // LD0: lights while TX frame is in progress
-
-    // JTAG via Pmod JA
-    input  logic jtag_tck,     // JA[1] pin C17
-    input  logic jtag_tms,     // JA[2] pin D18
-    input  logic jtag_tdi,     // JA[3] pin E18
-    output logic jtag_tdo,     // JA[4] pin G17
-    input  logic jtag_trst_n   // JA[7] pin D17
+    output logic led_busy      // LD0: lights while TX frame is in progress
 );
 
     logic clk_10mhz;
@@ -43,7 +36,7 @@ module fpga_top #(
 
     assign rst_n_sync = cpu_rst_n_sync & clk_locked;
 
-    // ---- Debug observation bus ----
+    // Debug observation (from main_top; no off-chip tap — UART-only bring-up)
     logic       dbg_ready, dbg_done, dbg_ffn_start;
     logic       dbg_rx_dv, dbg_tx_dv, dbg_tx_busy;
     logic [2:0] dbg_wrapper_state;
@@ -57,32 +50,10 @@ module fpga_top #(
     logic [15:0] dbg_mac_out_2[0:N-1];
     logic [15:0] dbg_y        [0:N-1];
 
-    // JTAG control outputs (TCK → clk CDC)
-    logic jtag_force_start_tck, jtag_force_rst_tck;
-    logic jtag_force_start_s1, jtag_force_start_sync;
-    logic jtag_force_rst_s1,   jtag_force_rst_sync;
-
-    always_ff @(posedge clk_10mhz or negedge rst_n_sync) begin
-        if (!rst_n_sync) begin
-            jtag_force_start_s1   <= 1'b0;
-            jtag_force_start_sync <= 1'b0;
-            jtag_force_rst_s1     <= 1'b0;
-            jtag_force_rst_sync   <= 1'b0;
-        end else begin
-            jtag_force_start_s1   <= jtag_force_start_tck;
-            jtag_force_start_sync <= jtag_force_start_s1;
-            jtag_force_rst_s1     <= jtag_force_rst_tck;
-            jtag_force_rst_sync   <= jtag_force_rst_s1;
-        end
-    end
-
-    logic rst_n_eff;
-    assign rst_n_eff = rst_n_sync & ~jtag_force_rst_sync;
-
     // ---- FFN design core ----
     main_top #(.N(N)) u_main (
         .clk              (clk_10mhz),
-        .rst_n            (rst_n_eff),
+        .rst_n            (rst_n_sync),
         .rx_bit           (uart_rxd),
         .tx_bit           (uart_txd),
         .dbg_ready        (dbg_ready),
@@ -102,42 +73,6 @@ module fpga_top #(
         .dbg_mac_out_2    (dbg_mac_out_2),
         .dbg_y            (dbg_y)
     );
-
-    // ---- JTAG debug interface ----
-    logic tdo_internal;
-    logic tdo_en;
-
-    jtag_top #(.N(N), .IR_WIDTH(4)) u_jtag (
-        .tck              (jtag_tck),
-        .tms              (jtag_tms),
-        .trst_n           (jtag_trst_n),
-        .tdi              (jtag_tdi),
-        .tdo              (tdo_internal),
-        .tdo_en           (tdo_en),
-        .clk              (clk_10mhz),
-        .rst_n            (rst_n_eff),
-        .ready            (dbg_ready),
-        .done             (dbg_done),
-        .ffn_start        (dbg_ffn_start),
-        .rx_dv            (dbg_rx_dv),
-        .tx_dv            (dbg_tx_dv),
-        .tx_busy          (dbg_tx_busy),
-        .wrapper_state    (dbg_wrapper_state),
-        .w1_flat          (dbg_w1_flat),
-        .w2_flat          (dbg_w2_flat),
-        .x                (dbg_x),
-        .b1               (dbg_b1),
-        .b2               (dbg_b2),
-        .mac_out          (dbg_mac_out),
-        .gelu_out         (dbg_gelu_out),
-        .mac_out_2        (dbg_mac_out_2),
-        .y                (dbg_y),
-        .jtag_force_start (jtag_force_start_tck),
-        .jtag_force_rst   (jtag_force_rst_tck)
-    );
-
-    // TDO output: drive when enabled, tri-state otherwise
-    assign jtag_tdo = tdo_en ? tdo_internal : 1'b0;
 
     assign led_busy = dbg_tx_busy;
 
